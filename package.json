@@ -28,7 +28,11 @@
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/react": "~19.2.2",
+    "daisyui": "^5.7.37",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3"
   },
   "scripts": {
