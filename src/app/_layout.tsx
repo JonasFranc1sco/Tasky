@@ -1,22 +1,39 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { DarkTheme, DefaultTheme, Slot, ThemeProvider } from 'expo-router';
+import { StyleSheet, View, useColorScheme } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
-import "../global.css";
+import '../global.css';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { AppBottomBar } from '@/components/app-bottom-bar';
 
-SplashScreen.preventAutoHideAsync();
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <PaperProvider>
-      <AnimatedSplashOverlay />
-      <AppTabs />
+      <PaperProvider
+        settings={{
+          icon: ({ name, color, size }) => (
+            <MaterialCommunityIcons
+              name={name as keyof typeof MaterialCommunityIcons.glyphMap}
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      >
+        <View style={styles.container}>
+          <View style={styles.content}>
+            <Slot />
+          </View>
+          <AppBottomBar/>
+        </View>
       </PaperProvider>
     </ThemeProvider>
-  );
+);
 }
+    const styles = StyleSheet.create({
+      container: { flex: 1},
+      content: { flex: 1},
+    });
