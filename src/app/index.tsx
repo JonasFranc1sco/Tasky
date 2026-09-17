@@ -1,8 +1,8 @@
-import { Stack } from 'expo-router';
+import { Redirect } from 'expo-router';
 import "../global.css";
 
-export default function HomeScreen() {
+export default function Root() {
   return (
-    <Stack />
+    <Redirect href="/task" />
   );
 }
