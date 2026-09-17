@@ -5,6 +5,8 @@ import { PaperProvider } from 'react-native-paper';
 import '../global.css';
 
 import { AppBottomBar } from '@/components/app-bottom-bar';
+import { taskyTheme } from '@/constants/theme';
+import { TasksProvider } from '@/hooks/tasks.context';
 
 
 export default function TabLayout() {
@@ -13,6 +15,7 @@ export default function TabLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <PaperProvider
+        theme={taskyTheme}
         settings={{
           icon: ({ name, color, size }) => (
             <MaterialCommunityIcons
@@ -23,12 +26,14 @@ export default function TabLayout() {
           ),
         }}
       >
-        <View style={styles.container}>
-          <View style={styles.content}>
-            <Slot />
+        <TasksProvider>
+          <View style={styles.container}>
+            <View style={styles.content}>
+              <Slot />
+            </View>
+            <AppBottomBar />
           </View>
-          <AppBottomBar/>
-        </View>
+        </TasksProvider>
       </PaperProvider>
     </ThemeProvider>
 );
