@@ -1,4 +1,4 @@
-import { useTasks } from '@/hooks/tasks.context';
+import { useTasks } from '@/hooks/tasks-context';
 import { useLocalSearchParams } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 import { Button, Divider } from 'react-native-paper';

@@ -1,16 +1,15 @@
+import { ScreenHeader } from '@/components/screen-header';
 import { TaskCard } from '@/components/task-card';
 import { WeeklyGoalCard } from '@/components/weekly-goal-card';
 import { CURRENT_EMPLOYEE } from '@/constants/tasks';
-import { useTasks } from '@/hooks/tasks.context';
+import { useTasks } from '@/hooks/tasks-context';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Text, View } from 'react-native';
 import { SegmentedButtons } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TaskQueueScreen() {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const { tasks, completeTask } = useTasks();
     const [tab, setTab] = useState<'pending' | 'completed'>('pending');
 
@@ -20,13 +19,13 @@ export default function TaskQueueScreen() {
     const highPriorities = pending.filter((t) => t.priority === 'alta').length;
 
     return (
-        <View className="flex-1 bg-surface">
+    <View className="flex-1 bg-surface">
+      <ScreenHeader title="Inicio Tarefas" />
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList
         data={list}
         keyExtractor={(t) => t.id}
-        style={{ paddingTop: insets.top }}
         contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 12 }}
         ListHeaderComponent={
           <>

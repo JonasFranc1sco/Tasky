@@ -83,7 +83,7 @@ export function TaskCard({ task, onPress, onComplete }: Props) {
             <Button mode="contained" icon="check" onPress={() => onComplete(task.id)} style={{ flex: 1 }}>Concluir</Button>
           </>
         ) : (
-          <Button mode="contained" icon="done-all" onPress={() => onComplete(task.id)} style={{ flex: 1 }}>
+          <Button mode="contained" icon="arrow-right-bottom" onPress={() => onComplete(task.id)} style={{ flex: 1 }}>
             {completeLabel}
           </Button>
         )}

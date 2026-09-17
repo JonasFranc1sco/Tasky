@@ -6,7 +6,7 @@ import '../global.css';
 
 import { AppBottomBar } from '@/components/app-bottom-bar';
 import { taskyTheme } from '@/constants/theme';
-import { TasksProvider } from '@/hooks/tasks.context';
+import { TasksProvider } from '@/hooks/tasks-context';
 
 
 export default function TabLayout() {
