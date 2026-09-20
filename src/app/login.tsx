@@ -45,6 +45,18 @@ export default function LoginScreen() {
     setPassword("12345678");
   }
 
+  function handleLogin() {
+    const isManager =
+      role === "admin" ||
+      email.trim().toLowerCase() === DEMO_ACCOUNTS.admin.email.toLowerCase();
+
+    if (isManager) {
+      router.replace("/(gestor)/home");
+    } else {
+      router.replace("/task");
+    }
+  }
+
   return (
     <View className="flex-1 bg-surface">
       <Stack.Screen options={{ headerShown: false }} />
@@ -148,7 +160,7 @@ export default function LoginScreen() {
 
             <Pressable
               className="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-primary active:opacity-80"
-              onPress={() => router.replace("/task")}
+              onPress={handleLogin}
             >
               <Text className="text-sm font-semibold text-white">
                 Entrar na conta
