@@ -220,7 +220,7 @@ export default function LoginScreen() {
             <Text className="text-xs text-on-surface-variant">
               Não tem uma conta corporativa?
             </Text>
-            <Pressable onPress={() => {}}>
+            <Pressable onPress={() => router.replace("/signup")}>
               <Text className="mt-0.5 text-xs font-semibold text-primary">
                 Cadastre sua empresa
               </Text>
