@@ -3,7 +3,7 @@ import { ManagerStatCard } from '@/components/manager-stat-card';
 import { ManagerTaskCard, type ManagerTask } from '@/components/manager-task-card';
 import { ScreenHeader } from '@/components/screen-header';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Chip, FAB } from 'react-native-paper';
@@ -46,6 +46,7 @@ const INITIAL_TASKS: ManagerTask[] = [
 ];
 
 export default function GestorHomeScreen() {
+  const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [tasks] = useState<ManagerTask[]>(INITIAL_TASKS);
 
@@ -70,7 +71,7 @@ export default function GestorHomeScreen() {
           <>
             {/* Banner do Gestor */}
             <ManagerHeroCard
-              greeting="Olá, Marian Ramos 👋"
+              greeting="Olá, Mariana Ramos 👋"
               company="Café & Grãos Ltda"
               date="Hoje, 24 de Out"
             />
@@ -204,7 +205,12 @@ export default function GestorHomeScreen() {
             </ScrollView>
           </>
         }
-        renderItem={({ item }) => <ManagerTaskCard task={item} />}
+        renderItem={({ item }) => (
+          <ManagerTaskCard
+            task={item}
+            onPress={() => router.push('/(gestor)/view_task')}
+          />
+        )}
       />
 
       {/* FAB Flutuante com Paper */}

@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { IconButton } from 'react-native-paper';
 
 export type ManagerTask = {
@@ -22,7 +22,10 @@ export function ManagerTaskCard({ task, onPress, onMenuPress }: Props) {
   const isCompleted = task.status === 'completed';
 
   return (
-    <View className="rounded-2xl border border-slate-100 bg-surface-lowest p-4 shadow-sm">
+    <Pressable
+      onPress={onPress}
+      className="rounded-2xl border border-slate-100 bg-surface-lowest p-4 shadow-sm active:bg-slate-50"
+    >
       {/* Linha superior: Status Badge + Categoria + Menu IconButton do Paper */}
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">
@@ -79,6 +82,6 @@ export function ManagerTaskCard({ task, onPress, onMenuPress }: Props) {
           <Text className="text-xs text-on-surface-variant">{task.time}</Text>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
