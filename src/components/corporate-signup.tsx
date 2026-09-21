@@ -2,22 +2,22 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-    Pressable,
-    ScrollView,
-    Text,
-    TextInput,
-    View,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
-    formatCnpj,
-    formatPhone,
-    isAdminFormValid,
-    isCompanyFormValid,
-    type AdminSignupValues,
-    type CompanySignupValues,
+  formatCnpj,
+  formatPhone,
+  isAdminFormValid,
+  isCompanyFormValid,
+  type AdminSignupValues,
+  type CompanySignupValues,
 } from "@/constants/signup-validation";
 
 type Icon = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -38,9 +38,9 @@ const companyFields: FieldConfig[] = [
 ];
 
 const adminFields: FieldConfig[] = [
-  { key: "adminName", label: "Nome Completo", icon: "account-outline", capitalize: "words" },
-  { key: "adminEmail", label: "E-mail Corporativo", icon: "email-outline", keyboardType: "email-address", capitalize: "none" },
-  { key: "password", label: "Senha de Acesso", icon: "lock-outline", capitalize: "none" },
+  { key: "adminName", label: "Nome completo", icon: "account-outline", capitalize: "words" },
+  { key: "adminEmail", label: "E-mail corporativo", icon: "email-outline", keyboardType: "email-address", capitalize: "none" },
+  { key: "password", label: "Senha de acesso", icon: "lock-outline", capitalize: "none" },
 ];
 
 function Field({
@@ -60,57 +60,53 @@ function Field({
   onTogglePassword?: () => void;
   readOnly?: boolean;
 }) {
-  const { colors } = useTheme();
-
   return (
-    <View className="mb-3">
-      <Text className="mb-1 text-[10px] font-bold text-foreground">
-        {config.label} <Text className="text-error">*</Text>
+    <View className="gap-1 mb-3">
+      {/* Label alinhado com o estilo do FormField do Login */}
+      <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
+        {config.label} {!readOnly ? <Text className="text-error">*</Text> : null}
       </Text>
 
+      {/* Caixa do Input com borda, altura de 50px e fundo idêntico */}
       <View
-        className={
-          readOnly
-            ? "min-h-[46px] flex-row items-center rounded-xl bg-primary/10 px-3"
-            : "min-h-[46px] flex-row items-center rounded-xl bg-background px-3"
-        }
+        className={`flex-row items-center rounded-xl border border-slate-200 px-3 ${
+          readOnly ? "bg-primary/10 border-transparent" : "bg-surface-lowest"
+        }`}
       >
         <MaterialCommunityIcons
           name={config.icon}
-          size={17}
-          color={colors.onSurfaceVariant}
+          size={20}
+          color="#45464E"
         />
 
-<TextInput
-  value={value}
-  onChangeText={onChange}
-  editable={!readOnly}
-  secureTextEntry={password && !showPassword}
-  keyboardType={config.keyboardType ?? "default"}
-  autoCapitalize={config.capitalize ?? "sentences"}
-  autoCorrect={false}
-  placeholder={`Digite ${config.label.toLowerCase()}`}
-  placeholderTextColor={colors.onSurfaceVariant}
-  selectionColor={colors.primary}
-  style={{
-    flex: 1,
-    minWidth: 0,
-    marginLeft: 8,
-    paddingVertical: 0,
-    color: colors.onSurface,
-    fontSize: 12,
-  }}
-/>
+        <View className="ml-2 flex-1 flex-row items-center">
+          <TextInput
+            value={value}
+            onChangeText={onChange}
+            editable={!readOnly}
+            secureTextEntry={password && !showPassword}
+            keyboardType={config.keyboardType ?? "default"}
+            autoCapitalize={config.capitalize ?? "sentences"}
+            autoCorrect={false}
+            placeholder={`Digite ${config.label.toLowerCase()}`}
+            placeholderTextColor="#75777F"
+            className="h-[50px] flex-1 text-sm text-on-surface"
+          />
 
-        {password ? (
-          <Pressable onPress={onTogglePassword} className="p-1">
-            <MaterialCommunityIcons
-              name={showPassword ? "eye-off-outline" : "eye-outline"}
-              size={18}
-              color={colors.onSurfaceVariant}
-            />
-          </Pressable>
-        ) : null}
+          {password ? (
+            <Pressable
+              accessibilityLabel={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              className="h-10 w-10 items-center justify-center rounded-lg"
+              onPress={onTogglePassword}
+            >
+              <MaterialCommunityIcons
+                name={showPassword ? "eye-outline" : "eye-off-outline"}
+                size={20}
+                color="#45464E"
+              />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
     </View>
   );
