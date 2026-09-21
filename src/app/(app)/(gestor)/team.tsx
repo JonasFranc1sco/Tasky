@@ -4,7 +4,7 @@ import { TeamManagementCard } from '@/components/team-management-card';
 import { TeamMemberCard, type TeamMember } from '@/components/team-member-card';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Chip } from 'react-native-paper';
 
@@ -18,37 +18,37 @@ const METRICS_DATA = {
 const INITIAL_MEMBERS: TeamMember[] = [
   {
     id: '1',
-    name: 'Carlos Silva',
-    role: 'Operador de Estoque',
+    name: 'Jonas Francisco',
+    role: 'Desenvolvedor Frontend',
     status: 'active',
-    initials: 'CS',
+    initials: 'JF',
     pendingTasks: 3,
     completedTasks: 5,
   },
   {
     id: '2',
-    name: 'Mariana Souza',
-    role: 'Barista Sênior',
+    name: 'Rafael Horeay',
+    role: 'Desenvolvedor Backend',
     status: 'active',
-    initials: 'MS',
+    initials: 'RH',
     pendingTasks: 1,
     completedTasks: 9,
   },
   {
     id: '3',
-    name: 'Roberto Alves',
-    role: 'Atendente de Caixa',
+    name: 'Kemily Freitas',
+    role: 'QA Engineer',
     status: 'active',
-    initials: 'RA',
+    initials: 'KF',
     pendingTasks: 2,
     completedTasks: 4,
   },
   {
     id: '4',
-    name: 'Camila Duarte',
-    role: 'Assistente Geral',
+    name: 'Eduarda Najara',
+    role: 'DevOps Engineer',
     status: 'pending',
-    initials: 'CD',
+    initials: 'EN',
     statusMessage: 'Aguardando aceite de convite',
   },
 ];

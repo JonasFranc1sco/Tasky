@@ -1,23 +1,23 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import {
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
-  formatCnpj,
-  formatPhone,
-  isAdminFormValid,
-  isCompanyFormValid,
-  type AdminSignupValues,
-  type CompanySignupValues,
+    formatCnpj,
+    formatPhone,
+    isAdminFormValid,
+    isCompanyFormValid,
+    type AdminSignupValues,
+    type CompanySignupValues,
 } from "@/constants/signup-validation";
 
 type Icon = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -211,18 +211,18 @@ export function CorporateSignup() {
   const [status, setStatus] = useState("");
 
   const [company, setCompany] = useState<CompanySignupValues>({
-    companyName: "Café & Grãos Ltda",
-    legalName: "Café & Grãos Comércio de Alimentos Ltda",
+    companyName: "Dubai Software House",
+    legalName: "Dubai Software House Desenvolvimento de Softwares",
     taxId: "12.345.678/0001-90",
     phone: "(11) 99999-8888",
-    industry: "Alimentos & Bebidas",
+    industry: "Desenvolvimento de Software",
   });
   
 
   const [admin, setAdmin] = useState<AdminSignupValues>({
-    adminName: "Mariana Ramos",
-    adminEmail: "mariana@cafegraos.com.br",
-    password: "CafeGraos@2026",
+    adminName: "João Pedro",
+    adminEmail: "joaopedro@dubaisoftwarehouse.com.br",
+    password: "DubaiSW@2026",
   });
 
   const updateCompany = (key: string, value: string) => {
@@ -265,7 +265,7 @@ export function CorporateSignup() {
     }
 
     setStatus("Cadastro concluído com sucesso.");
-    router.replace("/login" as never);
+    router.replace("/login");
   };
 
   const goBack = () => {
@@ -275,7 +275,7 @@ export function CorporateSignup() {
       return;
     }
 
-    router.canGoBack() ? router.back() : null;
+    router.canGoBack() ? router.back() : router.replace("/login");
   };
 
   const values = step === 1 ? company : admin;
@@ -413,9 +413,7 @@ export function CorporateSignup() {
               Já possui uma empresa cadastrada?{" "}
             </Text>
             <Pressable
-              onPress={() =>
-                setStatus("O login será conectado ao Tasky.")
-              }
+              onPress={() => router.replace("/login")}
             >
               <Text className="text-[10px] font-bold text-primary underline">
                 Fazer Login

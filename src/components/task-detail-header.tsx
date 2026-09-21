@@ -1,6 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
-import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -24,7 +23,7 @@ export function TaskDetailHeader({
     } else if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/(gestor)/home');
+      router.replace('/(app)/(gestor)/home');
     }
   };
 
