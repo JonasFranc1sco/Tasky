@@ -1,5 +1,3 @@
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 export type TeamMember = {

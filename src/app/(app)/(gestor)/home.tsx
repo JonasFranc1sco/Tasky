@@ -1,11 +1,12 @@
+import { DelegateTaskModal, DelegationPayload } from '@/components/delegate-task-modal';
 import { ManagerHeroCard } from '@/components/manager-hero-card';
 import { ManagerStatCard } from '@/components/manager-stat-card';
 import { ManagerTaskCard, type ManagerTask } from '@/components/manager-task-card';
 import { ScreenHeader } from '@/components/screen-header';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { CURRENT_COMPANY } from '@/constants/tasks';
 import { Stack, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
+import { useState } from 'react';
+import { FlatList, ScrollView, Text, View } from 'react-native';
 import { Button, Chip, FAB } from 'react-native-paper';
 
 // Dados definidos localmente no próprio arquivo (sem mock externo)
@@ -19,26 +20,26 @@ const METRICS_DATA = {
 const INITIAL_TASKS: ManagerTask[] = [
   {
     id: '1',
-    title: 'Reposição de Estoque Grãos Especial',
-    description: 'Receber fornecedor do Sul de Minas e estocar pacotes...',
-    assignee: 'Carlos Silva',
+    title: 'Code Review do PR #482',
+    description: 'Revisar os arquivos alterados, validar a cobertura de testes e aprovar ou solicitar correções.',
+    assignee: 'Rafael Horeay',
     time: 'Hoje, 17:00',
     status: 'pending',
     category: 'Alta Prioridade',
   },
   {
     id: '2',
-    title: 'Limpeza e Calibração da Máquina Espresso',
-    description: 'Descalcificação semanal do grupo e ajuste fino na...',
-    assignee: 'Mariana Souza',
+    title: 'Configuração do Runner CI/CD',
+    description: 'Instalar o novo runner, definir tags de execução e revisar os workflows de deploy.',
+    assignee: 'Eduarda Najara',
     time: 'Hoje, 11:30',
     status: 'completed',
   },
   {
     id: '3',
-    title: 'Fechamento do Caixa Mensal',
-    description: 'Auditoria de comandas em aberto, conciliação de...',
-    assignee: 'Roberto Alves',
+    title: 'Auditoria de Cobertura de Testes',
+    description: 'Levantar a cobertura dos módulos críticos e gerar relatório para o Sprint.',
+    assignee: 'Kemily Freitas',
     time: 'Amanhã, 18:00',
     status: 'pending',
     category: 'Rotina',
@@ -48,13 +49,30 @@ const INITIAL_TASKS: ManagerTask[] = [
 export default function GestorHomeScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
-  const [tasks] = useState<ManagerTask[]>(INITIAL_TASKS);
+  const [tasks, setTasks] = useState<ManagerTask[]>(INITIAL_TASKS);
+  const [delegateVisible, setDelegateVisible] = useState(false);
 
   const filteredTasks = tasks.filter((task) => {
     if (filter === 'pending') return task.status === 'pending';
     if (filter === 'completed') return task.status === 'completed';
     return true;
   });
+
+  const handleDelegate = (payload: DelegationPayload) => {
+    setTasks((prev) => [
+      {
+        id: `-${Date.now()}`,
+        title: payload.title,
+        description: payload.description,
+        assignee: payload.assignee.name,
+        time: payload.dueDate,
+        status: 'pending',
+        category: payload.priority,
+      },
+      ...prev,
+    ]);
+    setDelegateVisible(false);
+  };
 
   return (
     <View className="flex-1 bg-surface">
@@ -71,8 +89,8 @@ export default function GestorHomeScreen() {
           <>
             {/* Banner do Gestor */}
             <ManagerHeroCard
-              greeting="Olá, Mariana Ramos 👋"
-              company="Café & Grãos Ltda"
+              greeting="Olá, João Pedro 👋"
+              company={CURRENT_COMPANY}
               date="Hoje, 24 de Out"
             />
 
@@ -104,7 +122,7 @@ export default function GestorHomeScreen() {
               contentStyle={{ height: 48 }}
               style={{ borderRadius: 16, marginTop: 16 }}
               labelStyle={{ fontWeight: '600', fontSize: 14 }}
-              onPress={() => {}}
+              onPress={() => setDelegateVisible(true)}
             >
               Nova Tarefa • Delegar
             </Button>
@@ -208,7 +226,7 @@ export default function GestorHomeScreen() {
         renderItem={({ item }) => (
           <ManagerTaskCard
             task={item}
-            onPress={() => router.push('/(gestor)/view_task')}
+            onPress={() => router.push('/(app)/(gestor)/view_task')}
           />
         )}
       />
@@ -225,7 +243,13 @@ export default function GestorHomeScreen() {
           backgroundColor: '#0F2042',
           borderRadius: 28,
         }}
-        onPress={() => {}}
+        onPress={() => setDelegateVisible(true)}
+      />
+
+      <DelegateTaskModal
+        visible={delegateVisible}
+        onDismiss={() => setDelegateVisible(false)}
+        onConfirm={handleDelegate}
       />
     </View>
   );

@@ -16,14 +16,14 @@ type DemoAccount = {
 
 const DEMO_ACCOUNTS: Record<Role, DemoAccount> = {
   admin: {
-    email: "mariana@cafegraos.com.br",
-    initials: "MR",
-    name: "Mariana Ramos",
-    detail: "Café & Grãos Ltda",
+    email: "joaopedro@dubaisoftwarehouse.com.br",
+    initials: "JP",
+    name: "João Pedro",
+    detail: "Dubai Software House",
     label: "Admin",
   },
   worker: {
-    email: "jonas@cafegraos.com.br",
+    email: "jonas@dubaisoftwarehouse.com.br",
     initials: "JF",
     name: "Jonas Francisco",
     detail: "Turno Manhã - Ativo",
@@ -51,9 +51,9 @@ export default function LoginScreen() {
       email.trim().toLowerCase() === DEMO_ACCOUNTS.admin.email.toLowerCase();
 
     if (isManager) {
-      router.replace("/(gestor)/home");
+      router.replace("/(app)/(gestor)/home");
     } else {
-      router.replace("/task");
+      router.replace("/(app)/(worker)/task");
     }
   }
 
@@ -106,7 +106,7 @@ export default function LoginScreen() {
                 className="h-[50px] flex-1 text-sm text-on-surface"
                 keyboardType="email-address"
                 onChangeText={setEmail}
-                placeholder="ex: gestor@cafegraos.com.br"
+                placeholder="ex: gestor@dubaisoftwarehouse.com.br"
                 placeholderTextColor="#75777F"
                 value={email}
               />

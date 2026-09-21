@@ -9,7 +9,7 @@ type Props = {
 
 export function ManagerHeroCard({
   greeting = 'Olá, Gestor 👋',
-  company = 'Café & Grãos Ltda',
+  company = 'Dubai Software House',
   date = 'Hoje, 24 de Out',
 }: Props) {
   return (

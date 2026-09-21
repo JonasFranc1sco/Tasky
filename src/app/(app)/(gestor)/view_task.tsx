@@ -3,7 +3,7 @@ import { TaskDetailHeader } from '@/components/task-detail-header';
 import { TaskInfoCard, type TaskDetailInfo } from '@/components/task-info-card';
 import { TaskNotesCard, type TaskNote } from '@/components/task-notes-card';
 import { Stack, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
 import { Snackbar } from 'react-native-paper';
 
@@ -11,11 +11,11 @@ import { Snackbar } from 'react-native-paper';
 const INITIAL_TASK: TaskDetailInfo = {
   id: 'RF06',
   code: 'RF06',
-  title: 'Organização e Auditoria da Câmara Fria',
+  title: 'Configuração do Runner CI/CD',
   description:
-    'Inspeção higiênica e calibração periódica dos racks de armazenamento alimentício B-04.',
+    'Instalar e validar o novo runner na organização, configurar as tags de execução e revisar os workflows de deploy.',
   status: 'completed',
-  assignee: 'Carlos Silva',
+  assignee: 'Rafael Horeay',
   dueDate: '18/10 às 16:00',
   createdAt: '16/10 às 09:30',
   completedAt: '18/10 às 15:42',
@@ -24,11 +24,11 @@ const INITIAL_TASK: TaskDetailInfo = {
 const INITIAL_NOTES: TaskNote[] = [
   {
     id: '1',
-    author: 'Mariana Ramos',
-    role: 'Supervisora',
+    author: 'João Pedro',
+    role: 'Supervisor',
     timestamp: 'Ontem',
     content:
-      'Conferir a vedação da borracha e temperatura no termostato antes de dar como encerrada.',
+      'Confirmar a versão do runner e o cache de dependências antes de encerrar a configuração.',
   },
 ];
 
@@ -41,8 +41,8 @@ export default function GestorViewTaskScreen() {
   const handleSaveNote = (content: string) => {
     const newNote: TaskNote = {
       id: Date.now().toString(),
-      author: 'Mariana Ramos',
-      role: 'Supervisora',
+      author: 'João Pedro',
+      role: 'Supervisor',
       timestamp: 'Agora',
       content,
     };
@@ -86,7 +86,7 @@ export default function GestorViewTaskScreen() {
           if (router.canGoBack()) {
             router.back();
           } else {
-            router.replace('/(gestor)/home');
+            router.replace('/(app)/(gestor)/home');
           }
         }}
       />

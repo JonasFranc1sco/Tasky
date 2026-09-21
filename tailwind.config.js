@@ -20,6 +20,11 @@ module.exports = {
         "on-surface-variant": "#45464E",
         error: "#BA1A1A",
         outline: "#75777F",
+        background: "#F7F9FB",
+        foreground: "#191C1E",
+        muted: "#45464E",
+        border: "#E0E3E5",
+        success: "#006A61",
       }
     },
   },
