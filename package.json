@@ -2,6 +2,7 @@
   "name": "tasky",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "homepage": "https://jonasfranc1sco.github.io/Tasky",
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
     "expo": "~57.0.24",

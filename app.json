@@ -2,6 +2,11 @@
   "expo": {
     "name": "Tasky",
     "slug": "Tasky",
+      "experiments": {
+        "typedRoutes": true,
+        "reactCompiler": true,
+        "baseUrl": "/Tasky"
+    },
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -33,11 +38,6 @@
           "imageWidth": 76
         }
       ]
-    ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true,
-      "baseUrl": "/Tasky"
-    }
+    ]
   }
 }
