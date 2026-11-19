@@ -1,3 +1,4 @@
+import { useAuth } from '@/hooks/auth-context';
 import { Href, usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { BottomNavigation } from 'react-native-paper';
@@ -30,8 +31,11 @@ export function AppBottomBar() {
     const router = useRouter();
     const pathname = usePathname();
     const insets = useSafeAreaInsets();
+    const { isAdmin, profile } = useAuth();
     
-    const isGestor = GESTOR_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+    const isGestor = profile
+        ? isAdmin
+        : GESTOR_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
     const tabs = isGestor ? GESTOR_TABS : WORKER_TABS;
 
     const index = useMemo(
