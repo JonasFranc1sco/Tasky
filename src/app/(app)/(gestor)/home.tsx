@@ -3,7 +3,7 @@ import { ManagerHeroCard } from '@/components/manager-hero-card';
 import { ManagerStatCard } from '@/components/manager-stat-card';
 import { ManagerTaskCard, type ManagerTask } from '@/components/manager-task-card';
 import { ScreenHeader } from '@/components/screen-header';
-import { CURRENT_COMPANY } from '@/constants/tasks';
+import { useAuth } from '@/hooks/auth-context';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, ScrollView, Text, View } from 'react-native';
@@ -48,10 +48,15 @@ const INITIAL_TASKS: ManagerTask[] = [
 
 export default function GestorHomeScreen() {
   const router = useRouter();
+  const { profile, company } = useAuth();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [tasks, setTasks] = useState<ManagerTask[]>(INITIAL_TASKS);
   const [delegateVisible, setDelegateVisible] = useState(false);
+
+  const companyDisplayName =
+    company?.companyName || profile?.companyName || 'Empresa';
+  const managerDisplayName = profile?.name || 'Gestor';
 
  const filteredTasks = tasks.filter((task) => {
   const matchesStatus =
@@ -95,8 +100,8 @@ export default function GestorHomeScreen() {
           <>
             {/* Banner do Gestor */}
             <ManagerHeroCard
-              greeting="Olá, João Pedro 👋"
-              company={CURRENT_COMPANY}
+              greeting={`Olá, ${managerDisplayName} 👋`}
+              company={companyDisplayName}
               date="Hoje, 24 de Out"
             />
 
