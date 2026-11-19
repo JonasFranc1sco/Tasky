@@ -35,7 +35,8 @@ const DEMO_ACCOUNTS: Record<Role, DemoAccount> = {
 export default function LoginScreen() {
   const router = useRouter();
   const [role, setRole] = useState<Role>("admin");
-    const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
+  const [info, setInfo] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -49,13 +50,14 @@ export default function LoginScreen() {
     setPassword("12345678");
   }
 
-  async function handleLogin() {
+    async function handleLogin() {
     if (!email.trim() || !password) {
       setError("Informe e-mail e senha.");
       return;
     }
 
     setError(null);
+    setInfo(null);
     setLoading(true);
     try {
       await signIn(email, password);
@@ -64,6 +66,25 @@ export default function LoginScreen() {
       } else {
         router.replace("/(app)/(worker)/task");
       }
+    } catch (err) {
+      setError(getAuthErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    setInfo(null);
+    if (!email.trim()) {
+      setError("Digite seu e-mail para recuperar a senha.");
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+    try {
+      await resetPassword(email);
+      setInfo("Se este e-mail estiver cadastrado, você receberá um link para redefinir a senha.");
     } catch (err) {
       setError(getAuthErrorMessage(err));
     } finally {
@@ -165,16 +186,21 @@ export default function LoginScreen() {
                   Lembrar neste aparelho
                 </Text>
               </Pressable>
-              <Pressable onPress={() => {}}>
+              <Pressable onPress={handleForgotPassword} disabled={loading}>
                 <Text className="text-xs font-semibold text-primary">
                   Esqueceu a senha?
                 </Text>
               </Pressable>
             </View>
-
-              {error && (
+            {error && (
               <Text className="px-1 text-xs font-medium text-red-600">
                 {error}
+              </Text>
+            )}
+
+            {info && (
+              <Text className="px-1 text-xs font-medium text-green-700">
+                {info}
               </Text>
             )}
 
