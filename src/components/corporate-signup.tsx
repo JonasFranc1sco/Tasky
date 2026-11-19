@@ -19,7 +19,8 @@ import {
   type AdminSignupValues,
   type CompanySignupValues,
 } from "@/constants/signup-validation";
-
+import { useAuth } from "@/contexts/AuthContext";
+import { getAuthErrorMessage } from "@/services/auth-errors";
 type Icon = keyof typeof MaterialCommunityIcons.glyphMap;
 type FieldConfig = {
   key: string;
@@ -199,26 +200,26 @@ function SectionTitle({
 export function CorporateSignup() {
   const router = useRouter();
   const { colors } = useTheme();
-
+  const { signUp } = useAuth();
+  const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [terms, setTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
 
-  const [company, setCompany] = useState<CompanySignupValues>({
-    companyName: "Dubai Software House",
-    legalName: "Dubai Software House Desenvolvimento de Softwares",
-    taxId: "12.345.678/0001-90",
-    phone: "(11) 99999-8888",
-    industry: "Desenvolvimento de Software",
+    const [company, setCompany] = useState<CompanySignupValues>({
+    companyName: "",
+    legalName: "",
+    taxId: "",
+    phone: "",
+    industry: "",
   });
-  
 
   const [admin, setAdmin] = useState<AdminSignupValues>({
-    adminName: "João Pedro",
-    adminEmail: "joaopedro@dubaisoftwarehouse.com.br",
-    password: "DubaiSW@2026",
+    adminName: "",
+    adminEmail: "",
+    password: "",
   });
 
   const updateCompany = (key: string, value: string) => {
@@ -247,7 +248,7 @@ export function CorporateSignup() {
     setStep(2);
   };
 
-  const finish = () => {
+    const finish = async () => {
     setError("");
 
     if (!isAdminFormValid(admin)) {
@@ -260,10 +261,22 @@ export function CorporateSignup() {
       return;
     }
 
-    setStatus("Cadastro concluído com sucesso.");
-    router.replace("/login");
+    setLoading(true);
+    try {
+      await signUp({
+        name: admin.adminName,
+        email: admin.adminEmail,
+        password: admin.password,
+        company,
+      });
+      setStatus("Cadastro concluído com sucesso.");
+      router.replace("/(app)/(gestor)/home");
+    } catch (err) {
+      setError(getAuthErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
-
   const goBack = () => {
     if (step === 2) {
       setStep(1);
@@ -392,11 +405,11 @@ export function CorporateSignup() {
 
           <Pressable
             onPress={step === 1 ? next : finish}
+            disabled={loading}
             className="mt-4 min-h-[46px] flex-row items-center justify-center gap-2 rounded-xl bg-primary"
           >
             <Text className="text-[11px] font-extrabold text-white">
-              {step === 1 ? "Cadastrar Empresa" : "Concluir"}
-            </Text>
+              {step === 1 ? "Cadastrar Empresa" : loading ? "Criando conta..." : "Concluir"}            </Text>
             <MaterialCommunityIcons
               name="arrow-right"
               size={18}
