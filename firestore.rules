@@ -95,6 +95,27 @@ service cloud.firestore {
       allow delete: if isAdminOf(resource.data.companyId);
     }
 
+    // ---------- companies/{companyId} ----------
+
+    match /companies/{companyId} {
+      allow get: if isMemberOf(companyId);
+
+      // Busca pelo código de convite da empresa (tela /join), sempre com limit(1)
+      allow list: if signedIn() && request.query.limit <= 1;
+
+      // Criada logo após o perfil do admin (users/{uid}) com o mesmo companyId
+      allow create: if signedIn()
+        && request.resource.data.id == companyId
+        && request.resource.data.ownerId == request.auth.uid
+        && isAdminOf(companyId);
+
+      allow update: if isAdminOf(companyId)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.ownerId == resource.data.ownerId;
+
+      allow delete: if false;
+    }
+
     // Qualquer outro caminho fica bloqueado por padrão
   }
 }
