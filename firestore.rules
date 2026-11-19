@@ -116,6 +116,38 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------- invites/{inviteId} ----------
+
+    match /invites/{inviteId} {
+      allow get: if signedIn() && (
+        resource.data.email == myEmail()
+        || isMemberOf(resource.data.companyId)
+      );
+
+      // Membros listam os convites da empresa; a tela /join busca por código com limit(5)
+      allow list: if signedIn() && (
+        isMemberOf(resource.data.companyId)
+        || request.query.limit <= 5
+      );
+
+      allow create: if isAdminOf(request.resource.data.companyId)
+        && request.resource.data.createdByUid == request.auth.uid;
+
+      allow update: if signedIn() && (
+        (isAdminOf(resource.data.companyId)
+          && request.resource.data.companyId == resource.data.companyId)
+        // Convidado marca o próprio convite como aceito
+        || (resource.data.email == myEmail()
+          && resource.data.status == 'pending'
+          && request.resource.data.status == 'accepted'
+          && request.resource.data.acceptedByUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'acceptedByUid', 'acceptedAt']))
+      );
+
+      allow delete: if isAdminOf(resource.data.companyId);
+    }
+
     // Qualquer outro caminho fica bloqueado por padrão
   }
 }
