@@ -3,7 +3,8 @@ import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Checkbox } from "react-native-paper";
-
+import { useAuth } from "@/contexts/AuthContext";
+import { getAuthErrorMessage } from "@/services/auth-errors";
 type Role = "admin" | "worker";
 
 type DemoAccount = {
@@ -34,8 +35,11 @@ const DEMO_ACCOUNTS: Record<Role, DemoAccount> = {
 export default function LoginScreen() {
   const router = useRouter();
   const [role, setRole] = useState<Role>("admin");
-  const [email, setEmail] = useState(DEMO_ACCOUNTS.admin.email);
-  const [password, setPassword] = useState("empresa2024@segura");
+    const { signIn } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -45,15 +49,25 @@ export default function LoginScreen() {
     setPassword("12345678");
   }
 
-  function handleLogin() {
-    const isManager =
-      role === "admin" ||
-      email.trim().toLowerCase() === DEMO_ACCOUNTS.admin.email.toLowerCase();
+  async function handleLogin() {
+    if (!email.trim() || !password) {
+      setError("Informe e-mail e senha.");
+      return;
+    }
 
-    if (isManager) {
-      router.replace("/(app)/(gestor)/home");
-    } else {
-      router.replace("/(app)/(worker)/task");
+    setError(null);
+    setLoading(true);
+    try {
+      await signIn(email, password);
+      if (role === "admin") {
+        router.replace("/(app)/(gestor)/home");
+      } else {
+        router.replace("/(app)/(worker)/task");
+      }
+    } catch (err) {
+      setError(getAuthErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -158,13 +172,21 @@ export default function LoginScreen() {
               </Pressable>
             </View>
 
+              {error && (
+              <Text className="px-1 text-xs font-medium text-red-600">
+                {error}
+              </Text>
+            )}
+
             <Pressable
               className="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-primary active:opacity-80"
               onPress={handleLogin}
+              disabled={loading}
             >
               <Text className="text-sm font-semibold text-white">
-                Entrar na conta
+                {loading ? "Entrando..." : "Entrar na conta"}
               </Text>
+
               <MaterialCommunityIcons
                 name="arrow-right"
                 size={18}
