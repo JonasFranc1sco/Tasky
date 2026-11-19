@@ -2,7 +2,8 @@ import { ManagerStatCard } from '@/components/manager-stat-card';
 import { ProfileHeroCard } from '@/components/profile-hero-card';
 import { ProfileRow, ProfileSection } from '@/components/profile-section';
 import { ScreenHeader } from '@/components/screen-header';
-import { CURRENT_COMPANY } from '@/constants/tasks';
+import { useAuth } from '@/hooks/auth-context';
+import { useTeam } from '@/hooks/team-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -20,8 +21,19 @@ const METRICS = {
 
 export default function AdminProfileScreen() {
   const router = useRouter();
+  const { profile, company, signOut } = useAuth();
+  const { metrics } = useTeam();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [reopenAlertsEnabled, setReopenAlertsEnabled] = useState(true);
+
+  const companyDisplayName =
+    company?.companyName || profile?.companyName || 'Empresa';
+
+  // Encerra a sessão do administrador no Firebase
+  const handleLogout = async () => {
+    await signOut();
+    router.replace('/login');
+  };
 
   return (
     <View className="flex-1 bg-surface">
@@ -33,12 +45,12 @@ export default function AdminProfileScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 24 }}
       >
         <ProfileHeroCard
-          name="João Pedro"
-          initials="JP"
-          role="Gerente"
-          company={CURRENT_COMPANY}
+          name={profile?.name ?? 'Administrador'}
+          initials={profile?.initials ?? 'AD'}
+          role={profile?.jobTitle ?? 'Gerente'}
+          company={companyDisplayName}
           statusLabel="Em Cargo Ativo"
-          employeeCode="#ADM-0001"
+          employeeCode={profile?.employeeCode ?? '#ADM-0001'}
           badgeLabel="Admin"
         />
 
@@ -57,8 +69,8 @@ export default function AdminProfileScreen() {
           <ProfileRow
             icon="account-group"
             title="Equipe"
-            subtitle="4 colaboradores ativos"
-            onPress={() => {}}
+            subtitle={`${metrics.active} colaboradores ativos`}
+            onPress={() => router.push('/(app)/(gestor)/team')}
             right={CHEVRON}
             divider
           />
@@ -120,7 +132,7 @@ export default function AdminProfileScreen() {
         <View>
           <Pressable
             className="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-surface-lowest shadow-sm active:opacity-80"
-            onPress={() => router.replace('/login')}
+            onPress={handleLogout}
           >
             <MaterialCommunityIcons name="logout" size={20} color="#BA1A1A" />
             <Text className="text-base font-semibold text-error">Encerrar Sessão</Text>
@@ -129,7 +141,7 @@ export default function AdminProfileScreen() {
           <View className="mt-4 items-center gap-0.5 pb-2">
             <Text className="text-[11px] text-outline">Tasky Mobile v1.4.2</Text>
             <Text className="text-xs font-medium text-on-surface-variant">
-              {CURRENT_COMPANY} • Operações Integradas
+              {companyDisplayName} • Operações Integradas
             </Text>
           </View>
         </View>
