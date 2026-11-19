@@ -6,9 +6,11 @@ import {
 } from '@/components/team-leadership-card';
 import { TeamShiftStats } from '@/components/team-shift-stats';
 import { useAuth } from '@/hooks/auth-context';
+import { useChat } from '@/hooks/chat-context';
 import { useTeam } from '@/hooks/team-context';
+import type { EmployeeMember } from '@/types/company';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   FlatList,
@@ -23,10 +25,23 @@ import { Chip } from 'react-native-paper';
 type Filter = 'all' | 'turno' | 'sector';
 
 export default function MyTeamScreen() {
+  const router = useRouter();
   const { profile, company } = useAuth();
   const { activeMembers, manager } = useTeam();
+  const { startChatWithMember } = useChat();
   const [filter, setFilter] = useState<Filter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Abre uma conversa direta com o colega ou gestor selecionado
+  const handleStartChat = async (targetMember?: EmployeeMember | null) => {
+    if (!targetMember) return;
+    try {
+      const conv = await startChatWithMember(targetMember);
+      router.push(`/chat/${conv.id}`);
+    } catch {
+      // Ignora caso o usuário toque no próprio perfil
+    }
+  };
 
   // Converte os membros ativos da empresa no formato visual do ColleagueCard
   const colleagues = useMemo<Colleague[]>(
@@ -97,7 +112,15 @@ export default function MyTeamScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 12 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        renderItem={({ item }) => <ColleagueCard colleague={item} />}
+        renderItem={({ item }) => {
+          const targetMember = activeMembers.find((m) => m.id === item.id);
+          return (
+            <ColleagueCard
+              colleague={item}
+              onChatPress={() => handleStartChat(targetMember)}
+            />
+          );
+        }}
         ListHeaderComponent={
           <>
             <View className="flex-row items-center justify-between pt-1">
@@ -212,7 +235,10 @@ export default function MyTeamScreen() {
         }
         ListFooterComponent={
           <>
-            <TeamLeadershipCard manager={teamLead} />
+            <TeamLeadershipCard
+              manager={teamLead}
+              onTalkPress={() => handleStartChat(manager)}
+            />
             <TeamShiftStats
               shift="08:00 – 18:00"
               shiftStatus="Operando normal"
