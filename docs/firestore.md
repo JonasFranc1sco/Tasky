@@ -67,6 +67,23 @@ conversations/{id}.companyId ──►  companies/{id}
 
 ## Regras de segurança
 
-As regras ficam no Console (Firestore → Regras). Atualmente exigem apenas usuário
-autenticado (`request.auth != null`). Regras por empresa e por perfil ainda serão
-definidas.
+Arquivo versionado: [`firestore.rules`](../firestore.rules). Para aplicar, copie o
+conteúdo em Console → Firestore → Regras → **Publicar** (ou `firebase deploy --only firestore:rules`).
+
+| Coleção | Leitura | Escrita |
+|---|---|---|
+| `users` | Próprio perfil e membros da mesma empresa | Próprio usuário só edita `name`, `jobTitle`, `sector`, `companyName`; admin edita e remove membros da empresa |
+| `companies` | Membros da empresa (busca por código com `limit(1)`) | Criada pelo admin no cadastro; só admin edita |
+| `invites` | Admin/membros da empresa e o próprio convidado (busca por código com `limit(5)`) | Admin cria, edita e remove; convidado só marca como aceito |
+| `conversations` / `messages` | Só os 2 participantes | Participantes da mesma empresa; mensagem só com `senderId` próprio |
+
+Regras de cadastro em `users`:
+- `role: "admin"` só para empresa **nova** (cadastro) ou com convite de admin válido (`inviteId`).
+- `role: "worker"` só para empresa **existente**.
+- Ninguém altera o próprio `role`, `companyId` ou `status`.
+
+Limitações conhecidas:
+- A busca por código em `/join` exige permitir listagem de `companies` e `invites`
+  com limite pequeno a qualquer usuário logado. Uma coleção separada só para os
+  códigos eliminaria isso.
+- Quem tem o código geral da empresa entra como `worker` (comportamento esperado do convite geral).
