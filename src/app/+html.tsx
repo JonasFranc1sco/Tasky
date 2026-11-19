@@ -12,7 +12,9 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
         <meta name="theme-color" content="#2563eb" />
         <link rel="manifest" href="/Tasky/manifest.json" />
-        <script dangerouslySetInnerHTML={{ __html: serviceWorkerRegistration }} />
+        {process.env.NODE_ENV === "production" && (
+          <script dangerouslySetInnerHTML={{ __html: serviceWorkerRegistration }} />
+        )}
         <ScrollViewStyleReset />
         {headNodes}
       </head>
@@ -25,11 +27,15 @@ export default function Root({ children }: PropsWithChildren) {
 }
 
 const serviceWorkerRegistration = `
-if ('serviceWorker' in navigator) {
+if (
+  'serviceWorker' in navigator &&
+  window.location.hostname !== 'localhost' &&
+  window.location.hostname !== '127.0.0.1'
+) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/Tasky/sw.js', { scope: '/Tasky/' })
-      .catch((error) => console.error('Service worker registration failed:', error));
+      .catch((error) => console.warn('Service worker registration failed:', error));
   });
 }
 `;
