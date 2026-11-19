@@ -8,12 +8,17 @@ import {
   type UserRole,
 } from '@/types/company';
 import {
+  EmailAuthProvider,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   signInWithEmailAndPassword,
+  updatePassword,
+  updateProfile,
   type User,
 } from 'firebase/auth';
 import {
+  Timestamp,
   collection,
   doc,
   getDoc,
@@ -21,16 +26,25 @@ import {
   limit,
   onSnapshot,
   query,
+  updateDoc,
   where,
 } from 'firebase/firestore';
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
+
+export type UpdatePersonalInfoInput = {
+  name: string;
+  jobTitle: string;
+  sector: string;
+  companyName?: string;
+};
 
 type AuthContextValue = {
   user: User | null;
@@ -42,6 +56,11 @@ type AuthContextValue = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<EmployeeMember>;
   signOut: () => Promise<void>;
+  updatePersonalInfo: (input: UpdatePersonalInfoInput) => Promise<void>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string
+  ) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -237,6 +256,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCompany(null);
   };
 
+  // Atualiza as informações pessoais do usuário logado (e nome da empresa se for admin)
+  const updatePersonalInfo = useCallback(
+    async (input: UpdatePersonalInfoInput) => {
+      if (!profile) {
+        throw new Error('Perfil de usuário não encontrado.');
+      }
+
+      const trimmedName = input.name.trim();
+      const trimmedJobTitle = input.jobTitle.trim();
+      const trimmedSector = input.sector.trim() || 'Geral';
+      const trimmedCompanyName = input.companyName?.trim();
+
+      if (auth.currentUser && trimmedName) {
+        await updateProfile(auth.currentUser, {
+          displayName: trimmedName,
+        }).catch(() => {});
+      }
+
+      const userUpdates: Record<string, unknown> = {
+        name: trimmedName,
+        jobTitle: trimmedJobTitle,
+        sector: trimmedSector,
+        updatedAt: Timestamp.now(),
+      };
+
+      if (profile.role === 'admin' && trimmedCompanyName) {
+        userUpdates.companyName = trimmedCompanyName;
+      }
+
+      await updateDoc(doc(db, 'users', profile.id), userUpdates);
+
+      if (
+        profile.role === 'admin' &&
+        trimmedCompanyName &&
+        company?.id &&
+        trimmedCompanyName !== company.companyName
+      ) {
+        await CompanyService.updateCompany(company.id, {
+          companyName: trimmedCompanyName,
+        });
+        setCompany((prev) =>
+          prev ? { ...prev, companyName: trimmedCompanyName } : prev
+        );
+      }
+    },
+    [company, profile]
+  );
+
+  // Reautentica o usuário atual e altera a senha de acesso no Firebase Authentication
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      const currentUser = auth.currentUser;
+      const userEmail = currentUser?.email || profile?.email;
+
+      if (!currentUser || !userEmail) {
+        throw new Error('Sessão inválida. Faça login novamente.');
+      }
+
+      const credential = EmailAuthProvider.credential(
+        userEmail,
+        currentPassword
+      );
+      await reauthenticateWithCredential(currentUser, credential);
+      await updatePassword(currentUser, newPassword);
+    },
+    [profile?.email]
+  );
+
   const value = useMemo<AuthContextValue>(() => {
     const role = profile?.role ?? null;
     return {
@@ -249,8 +336,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signIn,
       signOut,
+      updatePersonalInfo,
+      changePassword,
     };
-  }, [user, profile, company, loading]);
+  }, [user, profile, company, loading, updatePersonalInfo, changePassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
