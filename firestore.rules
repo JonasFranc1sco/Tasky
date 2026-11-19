@@ -55,6 +55,46 @@ service cloud.firestore {
       return inviteId is string && adminInviteMatches(inviteId);
     }
 
+    // ---------- users/{userId} ----------
+
+    match /users/{userId} {
+      // Próprio perfil (mesmo antes de existir), busca por uid/e-mail próprios
+      // ou membros da mesma empresa
+      allow read: if signedIn() && (
+        userId == request.auth.uid
+        || resource.data.uid == request.auth.uid
+        || resource.data.email == myEmail()
+        || isMemberOf(resource.data.companyId)
+      );
+
+      allow create: if signedIn()
+        && userId == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role in ['admin', 'worker']
+        && (
+          // Cadastro de empresa nova: admin de uma empresa que ainda não existe
+          (request.resource.data.role == 'admin'
+            && !companyExists(request.resource.data.companyId))
+          // Ingresso como worker em empresa existente (código ou convite)
+          || (request.resource.data.role == 'worker'
+            && companyExists(request.resource.data.companyId))
+          // Ingresso como admin por convite individual
+          || (request.resource.data.role == 'admin' && validAdminInvite())
+        );
+
+      allow update: if signedIn() && (
+        // Próprio usuário: só dados pessoais (não muda role, empresa nem status)
+        (userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'jobTitle', 'sector', 'companyName', 'updatedAt']))
+        // Admin da empresa: edita membros, sem movê-los para outra empresa
+        || (isAdminOf(resource.data.companyId)
+          && request.resource.data.companyId == resource.data.companyId)
+      );
+
+      allow delete: if isAdminOf(resource.data.companyId);
+    }
+
     // Qualquer outro caminho fica bloqueado por padrão
   }
 }
