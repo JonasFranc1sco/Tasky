@@ -34,6 +34,7 @@ export default function AdminProfileScreen() {
   const { profile, company, signOut } = useAuth();
   const {
     uploading: photoUploading,
+    progress: photoUploadProgress,
     error: photoError,
     pickAndUploadPhoto,
   } = useProfilePhoto();
@@ -71,6 +72,7 @@ export default function AdminProfileScreen() {
           initials={profile?.initials ?? 'AD'}
           photoURL={profile?.photoURL}
           photoUploading={photoUploading}
+          photoUploadProgress={photoUploadProgress}
           photoError={photoError}
           onPhotoPress={pickAndUploadPhoto}
           role={roleDisplay}

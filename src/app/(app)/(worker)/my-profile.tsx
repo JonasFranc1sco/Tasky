@@ -23,6 +23,7 @@ export default function MyProfileScreen() {
   const { profile, company, signOut } = useAuth();
   const {
     uploading: photoUploading,
+    progress: photoUploadProgress,
     error: photoError,
     pickAndUploadPhoto,
   } = useProfilePhoto();
@@ -60,6 +61,7 @@ export default function MyProfileScreen() {
           initials={profile?.initials ?? 'CL'}
           photoURL={profile?.photoURL}
           photoUploading={photoUploading}
+          photoUploadProgress={photoUploadProgress}
           photoError={photoError}
           onPhotoPress={pickAndUploadPhoto}
           role={roleDisplay}

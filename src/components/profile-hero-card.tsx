@@ -12,6 +12,7 @@ type Props = {
   initials: string;
   photoURL?: string | null;
   photoUploading?: boolean;
+  photoUploadProgress?: number;
   photoError?: string | null;
   role: string;
   company: string;
@@ -27,6 +28,7 @@ export function ProfileHeroCard({
   initials,
   photoURL,
   photoUploading = false,
+  photoUploadProgress = 0,
   photoError,
   role,
   company,
@@ -114,7 +116,14 @@ export function ProfileHeroCard({
         </View>
       </View>
 
-      {photoError ? (
+      {photoUploading ? (
+        <Text
+          accessibilityLiveRegion="polite"
+          className="mt-2 text-xs text-on-surface-variant"
+        >
+          Enviando foto de perfil: {photoUploadProgress}%
+        </Text>
+      ) : photoError ? (
         <Text className="mt-2 text-xs text-error">{photoError}</Text>
       ) : null}
 
