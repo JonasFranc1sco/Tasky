@@ -1,4 +1,5 @@
 import { useAuth } from '@/hooks/auth-context';
+import { getResponsiveModalContentStyle } from '@/components/responsive-modal-style';
 import { useTeam } from '@/hooks/team-context';
 import { TeamService } from '@/services/team-service';
 import type { EmployeeMember, MemberStatus, UserRole } from '@/types/company';
@@ -11,6 +12,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Chip, Modal, Portal } from 'react-native-paper';
 
@@ -25,12 +27,14 @@ export function InviteEmployeeModal({
   editingMember,
   onDismiss,
 }: Props) {
+  const { width, height } = useWindowDimensions();
+
   return (
     <Portal>
       <Modal
         visible={visible}
         onDismiss={onDismiss}
-        contentContainerStyle={{ margin: 20 }}
+        contentContainerStyle={getResponsiveModalContentStyle(width, height, 640)}
       >
         <InviteEmployeeForm
           key={`${editingMember?.id ?? 'new'}-${visible ? 'open' : 'closed'}`}
@@ -49,6 +53,8 @@ function InviteEmployeeForm({
   editingMember?: EmployeeMember | null;
   onDismiss: () => void;
 }) {
+  const { width, height } = useWindowDimensions();
+  const isNarrow = width < 480;
   const { company } = useAuth();
   const { inviteEmployee, updateEmployee } = useTeam();
 
@@ -138,7 +144,10 @@ function InviteEmployeeForm({
     'min-h-11 rounded-xl border border-slate-200 bg-surface-container px-3 text-sm text-on-surface';
 
   return (
-    <View className="max-h-[88%] rounded-3xl bg-surface-lowest p-5 shadow-sm">
+    <View
+      className="max-h-[88%] rounded-3xl bg-surface-lowest p-5 shadow-sm"
+      style={{ maxHeight: Math.min(height - 64, 800), width: '100%' }}
+    >
       {/* Cabeçalho do Modal */}
       <View className="flex-row items-center justify-between">
         <Text className="text-lg font-bold text-on-surface">
@@ -198,7 +207,7 @@ function InviteEmployeeForm({
       ) : (
         <>
           <ScrollView
-            className="mt-4"
+            className="mt-4 flex-1"
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -231,8 +240,8 @@ function InviteEmployeeForm({
                 />
               </View>
 
-              <View className="flex-row gap-2.5">
-                <View className="flex-1 gap-1">
+              <View className="gap-2.5" style={{ flexDirection: isNarrow ? 'column' : 'row' }}>
+                <View className="gap-1" style={{ flex: isNarrow ? undefined : 1 }}>
                   <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
                     Cargo
                   </Text>
@@ -244,7 +253,7 @@ function InviteEmployeeForm({
                     placeholderTextColor="#75777F"
                   />
                 </View>
-                <View className="flex-1 gap-1">
+                <View className="gap-1" style={{ flex: isNarrow ? undefined : 1 }}>
                   <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
                     Setor
                   </Text>
@@ -263,7 +272,7 @@ function InviteEmployeeForm({
                 <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
                   Função e Permissão
                 </Text>
-                <View className="flex-row gap-2">
+                <View className="flex-row flex-wrap gap-2">
                   <Chip
                     mode="flat"
                     selected={role === 'worker'}
@@ -307,7 +316,7 @@ function InviteEmployeeForm({
                   <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
                     Status do Vínculo
                   </Text>
-                  <View className="flex-row gap-2">
+                  <View className="flex-row flex-wrap gap-2">
                     <Chip
                       mode="flat"
                       selected={status === 'active'}

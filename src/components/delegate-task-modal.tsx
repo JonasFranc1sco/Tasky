@@ -1,8 +1,9 @@
 import { useTeam } from '@/hooks/team-context';
+import { getResponsiveModalContentStyle } from '@/components/responsive-modal-style';
 import type { EmployeeMember } from '@/types/company';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Chip, Modal, Portal } from 'react-native-paper';
 
 export type DelegationPayload = {
@@ -36,6 +37,8 @@ function FieldLabel({ text }: { text: string }) {
 
 export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
   const { activeMembers } = useTeam();
+  const { width, height } = useWindowDimensions();
+  const isNarrow = width < 480;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [sector, setSector] = useState('');
@@ -88,9 +91,12 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
       <Modal
         visible={visible}
         onDismiss={handleDismiss}
-        contentContainerStyle={{ margin: 20 }}
+        contentContainerStyle={getResponsiveModalContentStyle(width, height, 640)}
       >
-        <View className="max-h-[85%] rounded-3xl bg-surface-lowest p-5 shadow-sm">
+        <View
+          className="max-h-[85%] rounded-3xl bg-surface-lowest p-5 shadow-sm"
+          style={{ maxHeight: Math.min(height - 64, 760), width: '100%' }}
+        >
           <View className="flex-row items-center justify-between">
             <Text className="text-lg font-bold text-on-surface">
               Delegar Tarefa
@@ -105,7 +111,7 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
           </View>
 
           <ScrollView
-            className="mt-4"
+            className="mt-4 flex-1"
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -133,8 +139,8 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
                 />
               </View>
 
-              <View className="flex-row gap-2.5">
-                <View className="flex-1 gap-1">
+              <View className="gap-2.5" style={{ flexDirection: isNarrow ? 'column' : 'row' }}>
+                <View className="gap-1" style={{ flex: isNarrow ? undefined : 1 }}>
                   <FieldLabel text="Setor" />
                   <TextInput
                     className={inputClass}
@@ -144,7 +150,7 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
                     placeholderTextColor="#75777F"
                   />
                 </View>
-                <View className="flex-1 gap-1">
+                <View className="gap-1" style={{ flex: isNarrow ? undefined : 1 }}>
                   <FieldLabel text="Prazo" />
                   <TextInput
                     className={inputClass}

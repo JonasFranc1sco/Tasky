@@ -1,4 +1,5 @@
 import { useAuth } from '@/hooks/auth-context';
+import { getResponsiveModalContentStyle } from '@/components/responsive-modal-style';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useState } from 'react';
 import {
@@ -7,6 +8,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Modal, Portal } from 'react-native-paper';
 
@@ -21,13 +23,14 @@ const inputClass =
 // Modal para edição das informações pessoais do colaborador ou administrador
 export function EditPersonalInfoModal({ visible, onDismiss }: ModalProps) {
   const { profile } = useAuth();
+  const { width, height } = useWindowDimensions();
 
   return (
     <Portal>
       <Modal
         visible={visible}
         onDismiss={onDismiss}
-        contentContainerStyle={{ margin: 20 }}
+        contentContainerStyle={getResponsiveModalContentStyle(width, height, 560)}
       >
         <EditPersonalInfoForm
           key={`${profile?.id ?? 'user'}-${visible ? 'open' : 'closed'}`}
@@ -40,6 +43,8 @@ export function EditPersonalInfoModal({ visible, onDismiss }: ModalProps) {
 
 function EditPersonalInfoForm({ onDismiss }: { onDismiss: () => void }) {
   const { profile, company, isAdmin, updatePersonalInfo } = useAuth();
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 480;
 
   const [name, setName] = useState(profile?.name ?? '');
   const [jobTitle, setJobTitle] = useState(profile?.jobTitle ?? '');
@@ -118,8 +123,8 @@ function EditPersonalInfoForm({ onDismiss }: { onDismiss: () => void }) {
           />
         </View>
 
-        <View className="flex-row gap-2">
-          <View className="flex-1 gap-1">
+        <View className="gap-2" style={{ flexDirection: isNarrow ? 'column' : 'row' }}>
+          <View className="gap-1" style={{ flex: isNarrow ? undefined : 1 }}>
             <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
               Cargo
             </Text>
@@ -131,7 +136,7 @@ function EditPersonalInfoForm({ onDismiss }: { onDismiss: () => void }) {
               placeholderTextColor="#75777F"
             />
           </View>
-          <View className="flex-1 gap-1">
+          <View className="gap-1" style={{ flex: isNarrow ? undefined : 1 }}>
             <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
               Setor
             </Text>
@@ -188,12 +193,14 @@ function EditPersonalInfoForm({ onDismiss }: { onDismiss: () => void }) {
 
 // Modal para alteração da senha de acesso com reautenticação no Firebase Auth
 export function ChangePasswordModal({ visible, onDismiss }: ModalProps) {
+  const { width, height } = useWindowDimensions();
+
   return (
     <Portal>
       <Modal
         visible={visible}
         onDismiss={onDismiss}
-        contentContainerStyle={{ margin: 20 }}
+        contentContainerStyle={getResponsiveModalContentStyle(width, height, 480)}
       >
         <ChangePasswordForm
           key={`pwd-${visible ? 'open' : 'closed'}`}
@@ -384,14 +391,19 @@ function ChangePasswordForm({ onDismiss }: { onDismiss: () => void }) {
 
 // Modal informativo de Termos de Uso e Política de Privacidade do Tasky
 export function TermsPrivacyModal({ visible, onDismiss }: ModalProps) {
+  const { width, height } = useWindowDimensions();
+
   return (
     <Portal>
       <Modal
         visible={visible}
         onDismiss={onDismiss}
-        contentContainerStyle={{ margin: 20 }}
+        contentContainerStyle={getResponsiveModalContentStyle(width, height, 760)}
       >
-        <View className="max-h-[85%] rounded-3xl bg-surface-lowest p-5 shadow-sm">
+        <View
+          className="max-h-[85%] rounded-3xl bg-surface-lowest p-5 shadow-sm"
+          style={{ maxHeight: Math.min(height - 64, 800), width: '100%' }}
+        >
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-2">
               <MaterialCommunityIcons
@@ -413,7 +425,7 @@ export function TermsPrivacyModal({ visible, onDismiss }: ModalProps) {
           </View>
 
           <ScrollView
-            className="mt-4"
+            className="mt-4 flex-1"
             showsVerticalScrollIndicator={false}
           >
             <View className="gap-3.5 pb-2">
