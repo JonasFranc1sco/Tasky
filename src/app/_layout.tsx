@@ -11,7 +11,7 @@ import "../global.css";
 
 import { taskyTheme } from "@/constants/theme";
 import { TasksProvider } from "@/hooks/tasks-context";
-
+import { AuthProvider } from "@/contexts/AuthContext";
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
@@ -29,11 +29,13 @@ export default function TabLayout() {
           ),
         }}
       >
-        <TasksProvider>
-          <View style={styles.container}>
-              <Slot />
-          </View>
-        </TasksProvider>
+        <AuthProvider>
+          <TasksProvider>
+            <View style={styles.container}>
+                <Slot />
+            </View>
+          </TasksProvider>
+        </AuthProvider>
       </PaperProvider>
     </ThemeProvider>
   );
