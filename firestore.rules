@@ -148,6 +148,54 @@ service cloud.firestore {
       allow delete: if isAdminOf(resource.data.companyId);
     }
 
+    // ---------- conversations/{conversationId} ----------
+
+    match /conversations/{conversationId} {
+      // Participante da conversa e membro da mesma empresa
+      function isParticipant(conv) {
+        return signedIn()
+          && request.auth.uid in conv.participants
+          && isMemberOf(conv.companyId);
+      }
+
+      // Permite checar se a conversa já existe antes de criá-la
+      allow get: if signedIn() && (
+        resource == null
+        || isParticipant(resource.data)
+      );
+
+      allow list: if isParticipant(resource.data);
+
+      allow create: if isParticipant(request.resource.data)
+        && request.resource.data.participants.size() == 2;
+
+      allow update: if isParticipant(resource.data)
+        && request.resource.data.participants == resource.data.participants
+        && request.resource.data.companyId == resource.data.companyId;
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function conversation() {
+          return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+        }
+
+        allow read: if isParticipant(conversation());
+
+        allow create: if isParticipant(conversation())
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.content is string
+          && request.resource.data.content.size() > 0;
+
+        // Só marcar como lida
+        allow update: if isParticipant(conversation())
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['readBy']);
+
+        allow delete: if false;
+      }
+    }
+
     // Qualquer outro caminho fica bloqueado por padrão
   }
 }
