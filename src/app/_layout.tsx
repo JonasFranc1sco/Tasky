@@ -11,6 +11,7 @@ import "../global.css";
 
 import { taskyTheme } from "@/constants/theme";
 import { AuthProvider } from "@/hooks/auth-context";
+import { ChatProvider } from "@/hooks/chat-context";
 import { TasksProvider } from "@/hooks/tasks-context";
 import { TeamProvider } from "@/hooks/team-context";
 
@@ -19,27 +20,29 @@ export default function TabLayout() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      {/* Providers de contexto ficam acima do PaperProvider para que os Portals/Modals acessem useAuth e useTeam */}
+      {/* Providers de contexto ficam acima do PaperProvider para que os Portals/Modals acessem useAuth, useTeam e useChat */}
       <AuthProvider>
         <TeamProvider>
-          <TasksProvider>
-            <PaperProvider
-              theme={taskyTheme}
-              settings={{
-                icon: ({ name, color, size }) => (
-                  <MaterialCommunityIcons
-                    name={name as keyof typeof MaterialCommunityIcons.glyphMap}
-                    color={color}
-                    size={size}
-                  />
-                ),
-              }}
-            >
-              <View style={styles.container}>
-                <Slot />
-              </View>
-            </PaperProvider>
-          </TasksProvider>
+          <ChatProvider>
+            <TasksProvider>
+              <PaperProvider
+                theme={taskyTheme}
+                settings={{
+                  icon: ({ name, color, size }) => (
+                    <MaterialCommunityIcons
+                      name={name as keyof typeof MaterialCommunityIcons.glyphMap}
+                      color={color}
+                      size={size}
+                    />
+                  ),
+                }}
+              >
+                <View style={styles.container}>
+                  <Slot />
+                </View>
+              </PaperProvider>
+            </TasksProvider>
+          </ChatProvider>
         </TeamProvider>
       </AuthProvider>
     </ThemeProvider>
