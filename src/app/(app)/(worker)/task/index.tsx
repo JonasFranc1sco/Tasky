@@ -5,11 +5,13 @@ import { useAuth } from '@/hooks/auth-context';
 import { useTasks } from '@/hooks/tasks-context';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { FlatList, Text, View, useWindowDimensions } from 'react-native';
 import { SegmentedButtons } from 'react-native-paper';
 
 export default function TaskQueueScreen() {
     const router = useRouter();
+    const { width } = useWindowDimensions();
+    const numColumns = width >= 1080 ? 2 : 1;
     const { profile } = useAuth();
     const { tasks, completeTask } = useTasks();
     const [tab, setTab] = useState<'pending' | 'completed'>('pending');
@@ -25,7 +27,11 @@ export default function TaskQueueScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList
+        key={numColumns}
+        style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}
         data={list}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? { gap: 12 } : undefined}
         keyExtractor={(t) => t.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 12 }}
         ListHeaderComponent={
@@ -54,7 +60,9 @@ export default function TaskQueueScreen() {
         }
         ListFooterComponent={tab === 'completed' ? <WeeklyGoalCard done={7} total={9} /> : null}
         renderItem={({ item }) => (
-          <TaskCard task={item} onPress={() => router.push(`/task/${item.id}`)} onComplete={completeTask} />
+          <View style={{ flex: 1, maxWidth: numColumns > 1 ? '49%' : '100%' }}>
+            <TaskCard task={item} onPress={() => router.push(`/task/${item.id}`)} onComplete={completeTask} />
+          </View>
         )}
       />
     </View>

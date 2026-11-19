@@ -12,7 +12,7 @@ import { useTeam } from '@/hooks/team-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { Switch } from 'react-native-paper';
 
 const CHEVRON = (
@@ -28,6 +28,8 @@ const METRICS = {
 
 export default function AdminProfileScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isWideMetrics = width >= 600;
   const { profile, company, signOut } = useAuth();
   const { metrics } = useTeam();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -54,8 +56,9 @@ export default function AdminProfileScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <ScrollView
+        style={{ width: '100%', maxWidth: 960, alignSelf: 'center' }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 24 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 24, flexGrow: 1 }}
       >
         <ProfileHeroCard
           name={profile?.name ?? 'Administrador'}
@@ -72,22 +75,31 @@ export default function AdminProfileScreen() {
           <Text className="px-1 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
             Desempenho & Escala
           </Text>
-          <View className="mt-1 flex-row gap-2.5">
-            <ManagerStatCard
-              title="Total"
-              value={METRICS.total}
-              subtitle="Tarefas ativas"
-            />
-            <ManagerStatCard
-              title="Pendentes"
-              value={METRICS.pending}
-              subtitle="Requer ação"
-            />
-            <ManagerStatCard
-              title="Concluídas"
-              value={METRICS.completed}
-              subtitle={METRICS.percentage}
-            />
+          <View
+            className="mt-1 gap-2.5"
+            style={{ flexDirection: 'row', flexWrap: isWideMetrics ? 'nowrap' : 'wrap' }}
+          >
+            <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+              <ManagerStatCard
+                title="Total"
+                value={METRICS.total}
+                subtitle="Tarefas ativas"
+              />
+            </View>
+            <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+              <ManagerStatCard
+                title="Pendentes"
+                value={METRICS.pending}
+                subtitle="Requer ação"
+              />
+            </View>
+            <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+              <ManagerStatCard
+                title="Concluídas"
+                value={METRICS.completed}
+                subtitle={METRICS.percentage}
+              />
+            </View>
           </View>
         </View>
 

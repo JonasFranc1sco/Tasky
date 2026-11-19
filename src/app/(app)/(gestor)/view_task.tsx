@@ -93,8 +93,9 @@ export default function GestorViewTaskScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <ScrollView
+        style={{ width: '100%', maxWidth: 960, alignSelf: 'center' }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 14 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 14, flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
       >
         {/* Card de Informações Principais e Metadados da Tarefa */}

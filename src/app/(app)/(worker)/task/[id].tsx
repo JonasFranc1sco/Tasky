@@ -11,7 +11,17 @@ export default function TaskDetailScreen() {
     if (!task) return <Text className="p-4 text-on-surface-variant">Tarefa não encontrada</Text>;
 
     return(
-    <ScrollView className="flex-1 bg-surface p-4" contentContainerStyle={{ gap: 12 }}>
+    <ScrollView
+      className="flex-1 bg-surface"
+      contentContainerStyle={{
+        width: '100%',
+        maxWidth: 900,
+        alignSelf: 'center',
+        flexGrow: 1,
+        padding: 16,
+        gap: 12,
+      }}
+    >
       <Text className="text-xl font-bold text-on-surface">{task.name}</Text>
       <Text className="text-sm text-on-surface-variant">{task.description}</Text>
       <Divider />

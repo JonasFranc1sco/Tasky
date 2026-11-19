@@ -6,7 +6,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { useAuth } from '@/hooks/auth-context';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, ScrollView, Text, View } from 'react-native';
+import { FlatList, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { Button, Chip, FAB, Searchbar } from 'react-native-paper';
 
 // Dados definidos localmente no próprio arquivo (sem mock externo)
@@ -49,6 +49,9 @@ const INITIAL_TASKS: ManagerTask[] = [
 export default function GestorHomeScreen() {
   const router = useRouter();
   const { profile, company } = useAuth();
+  const { width } = useWindowDimensions();
+  const numColumns = width >= 1080 ? 2 : 1;
+  const isWideMetrics = width >= 600;
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [tasks, setTasks] = useState<ManagerTask[]>(INITIAL_TASKS);
@@ -92,7 +95,11 @@ export default function GestorHomeScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList
+        key={numColumns}
+        style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}
         data={filteredTasks}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? { gap: 12 } : undefined}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 12 }}
         showsVerticalScrollIndicator={false}
@@ -106,22 +113,31 @@ export default function GestorHomeScreen() {
             />
 
             {/* Cards de Métricas */}
-            <View className="mt-4 flex-row gap-2.5">
-              <ManagerStatCard
-                title="Total"
-                value={METRICS_DATA.total}
-                subtitle="Tarefas ativas"
-              />
-              <ManagerStatCard
-                title="Pendentes"
-                value={METRICS_DATA.pending}
-                subtitle="Requer ação"
-              />
-              <ManagerStatCard
-                title="Concluídas"
-                value={METRICS_DATA.completed}
-                subtitle={METRICS_DATA.completedPercentage}
-              />
+            <View
+              className="mt-4 gap-2.5"
+              style={{ flexDirection: 'row', flexWrap: isWideMetrics ? 'nowrap' : 'wrap' }}
+            >
+              <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+                <ManagerStatCard
+                  title="Total"
+                  value={METRICS_DATA.total}
+                  subtitle="Tarefas ativas"
+                />
+              </View>
+              <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+                <ManagerStatCard
+                  title="Pendentes"
+                  value={METRICS_DATA.pending}
+                  subtitle="Requer ação"
+                />
+              </View>
+              <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+                <ManagerStatCard
+                  title="Concluídas"
+                  value={METRICS_DATA.completed}
+                  subtitle={METRICS_DATA.completedPercentage}
+                />
+              </View>
             </View>
 
             {/* Botão Paper Nova Tarefa • Delegar */}
@@ -245,10 +261,12 @@ export default function GestorHomeScreen() {
           </>
         }
         renderItem={({ item }) => (
-          <ManagerTaskCard
-            task={item}
-            onPress={() => router.push('/(app)/(gestor)/view_task')}
-          />
+          <View style={{ flex: 1, maxWidth: numColumns > 1 ? '49%' : '100%' }}>
+            <ManagerTaskCard
+              task={item}
+              onPress={() => router.push('/(app)/(gestor)/view_task')}
+            />
+          </View>
         )}
       />
 

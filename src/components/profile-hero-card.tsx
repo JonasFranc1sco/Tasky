@@ -54,7 +54,7 @@ export function ProfileHeroCard({
               {company}
             </Text>
           </View>
-          <View className="mt-2 flex-row items-center gap-2">
+          <View className="mt-2 flex-row flex-wrap items-center gap-2">
             <View className="flex-row items-center gap-1 rounded-full bg-[#006A61]/10 px-2 py-0.5">
               <View className="h-1.5 w-1.5 rounded-full bg-[#006A61]" />
               <Text className="text-[11px] font-medium text-[#006A61]">{statusLabel}</Text>

@@ -33,11 +33,13 @@ export default function AppLayout() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
-      <View style={{ flex: 1 }}>
-        <Slot />
+    <View style={{ flex: 1, alignItems: 'center' }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: 1280 }}>
+        <View style={{ flex: 1 }}>
+          <Slot />
+        </View>
+        <AppBottomBar />
       </View>
-      <AppBottomBar />
     </View>
   );
 }
