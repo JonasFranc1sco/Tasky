@@ -5,6 +5,7 @@
   "homepage": "https://jonasfranc1sco.github.io/Tasky",
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~57.0.24",
     "expo-image": "~57.0.5",
     "expo-linking": "~57.0.10",
@@ -12,6 +13,7 @@
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
+    "firebase": "^13.4.0",
     "nativewind": "^4.2.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
