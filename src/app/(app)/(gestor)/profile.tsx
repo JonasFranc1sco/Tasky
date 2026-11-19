@@ -1,15 +1,23 @@
 import { ManagerStatCard } from '@/components/manager-stat-card';
 import { ProfileHeroCard } from '@/components/profile-hero-card';
+import {
+  ChangePasswordModal,
+  EditPersonalInfoModal,
+  TermsPrivacyModal,
+} from '@/components/profile-modals';
 import { ProfileRow, ProfileSection } from '@/components/profile-section';
 import { ScreenHeader } from '@/components/screen-header';
-import { CURRENT_COMPANY } from '@/constants/tasks';
+import { useAuth } from '@/hooks/auth-context';
+import { useTeam } from '@/hooks/team-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Switch } from 'react-native-paper';
 
-const CHEVRON = <MaterialCommunityIcons name="chevron-right" size={20} color="#75777F" />;
+const CHEVRON = (
+  <MaterialCommunityIcons name="chevron-right" size={20} color="#75777F" />
+);
 
 const METRICS = {
   total: 14,
@@ -20,8 +28,25 @@ const METRICS = {
 
 export default function AdminProfileScreen() {
   const router = useRouter();
+  const { profile, company, signOut } = useAuth();
+  const { metrics } = useTeam();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [reopenAlertsEnabled, setReopenAlertsEnabled] = useState(true);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [termsModalVisible, setTermsModalVisible] = useState(false);
+
+  const companyDisplayName =
+    company?.companyName || profile?.companyName || 'Empresa';
+  const roleDisplay = profile?.sector
+    ? `${profile.jobTitle} • ${profile.sector}`
+    : (profile?.jobTitle ?? 'Gerente');
+
+  // Encerra a sessão do administrador no Firebase
+  const handleLogout = async () => {
+    await signOut();
+    router.replace('/login');
+  };
 
   return (
     <View className="flex-1 bg-surface">
@@ -33,13 +58,14 @@ export default function AdminProfileScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 24 }}
       >
         <ProfileHeroCard
-          name="João Pedro"
-          initials="JP"
-          role="Gerente"
-          company={CURRENT_COMPANY}
+          name={profile?.name ?? 'Administrador'}
+          initials={profile?.initials ?? 'AD'}
+          role={roleDisplay}
+          company={companyDisplayName}
           statusLabel="Em Cargo Ativo"
-          employeeCode="#ADM-0001"
+          employeeCode={profile?.employeeCode ?? '#ADM-0001'}
           badgeLabel="Admin"
+          onEditPress={() => setEditModalVisible(true)}
         />
 
         <View>
@@ -47,9 +73,21 @@ export default function AdminProfileScreen() {
             Desempenho & Escala
           </Text>
           <View className="mt-1 flex-row gap-2.5">
-            <ManagerStatCard title="Total" value={METRICS.total} subtitle="Tarefas ativas" />
-            <ManagerStatCard title="Pendentes" value={METRICS.pending} subtitle="Requer ação" />
-            <ManagerStatCard title="Concluídas" value={METRICS.completed} subtitle={METRICS.percentage} />
+            <ManagerStatCard
+              title="Total"
+              value={METRICS.total}
+              subtitle="Tarefas ativas"
+            />
+            <ManagerStatCard
+              title="Pendentes"
+              value={METRICS.pending}
+              subtitle="Requer ação"
+            />
+            <ManagerStatCard
+              title="Concluídas"
+              value={METRICS.completed}
+              subtitle={METRICS.percentage}
+            />
           </View>
         </View>
 
@@ -57,8 +95,8 @@ export default function AdminProfileScreen() {
           <ProfileRow
             icon="account-group"
             title="Equipe"
-            subtitle="4 colaboradores ativos"
-            onPress={() => {}}
+            subtitle={`${metrics.active} colaboradores ativos`}
+            onPress={() => router.push('/(app)/(gestor)/team')}
             right={CHEVRON}
             divider
           />
@@ -66,7 +104,7 @@ export default function AdminProfileScreen() {
             icon="clipboard-text-outline"
             title="Tarefas da Equipe"
             subtitle={`${METRICS.total} atribuídas no mês`}
-            onPress={() => {}}
+            onPress={() => router.push('/(app)/(gestor)/home')}
             right={CHEVRON}
           />
         </ProfileSection>
@@ -77,7 +115,13 @@ export default function AdminProfileScreen() {
             iconColor="#0F2042"
             title="Notificações de Novas Tarefas"
             subtitle="Push imediato ao ser designado"
-            right={<Switch value={notificationsEnabled} onValueChange={setNotificationsEnabled} color="#0F2042" />}
+            right={
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={setNotificationsEnabled}
+                color="#0F2042"
+              />
+            }
             divider
           />
           <ProfileRow
@@ -85,18 +129,12 @@ export default function AdminProfileScreen() {
             iconColor="#0F2042"
             title="Alertas de Reabertura"
             subtitle="Avisar se item precisar de revisão"
-            right={<Switch value={reopenAlertsEnabled} onValueChange={setReopenAlertsEnabled} color="#0F2042" />}
-            divider
-          />
-          <ProfileRow
-            icon="translate"
-            iconColor="#0F2042"
-            title="Idioma do Sistema"
-            subtitle="Português (Brasil)"
             right={
-              <View className="rounded bg-[#0F2042]/10 px-2 py-1">
-                <Text className="text-[11px] font-semibold text-primary">PT-BR</Text>
-              </View>
+              <Switch
+                value={reopenAlertsEnabled}
+                onValueChange={setReopenAlertsEnabled}
+                color="#0F2042"
+              />
             }
           />
         </ProfileSection>
@@ -105,14 +143,14 @@ export default function AdminProfileScreen() {
           <ProfileRow
             icon="lock-reset"
             title="Alterar Senha de Acesso"
-            onPress={() => {}}
+            onPress={() => setPasswordModalVisible(true)}
             right={CHEVRON}
             divider
           />
           <ProfileRow
             icon="shield-search"
             title="Termos de Uso & Privacidade"
-            onPress={() => {}}
+            onPress={() => setTermsModalVisible(true)}
             right={CHEVRON}
           />
         </ProfileSection>
@@ -120,20 +158,38 @@ export default function AdminProfileScreen() {
         <View>
           <Pressable
             className="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-surface-lowest shadow-sm active:opacity-80"
-            onPress={() => router.replace('/login')}
+            onPress={handleLogout}
           >
             <MaterialCommunityIcons name="logout" size={20} color="#BA1A1A" />
-            <Text className="text-base font-semibold text-error">Encerrar Sessão</Text>
+            <Text className="text-base font-semibold text-error">
+              Encerrar Sessão
+            </Text>
           </Pressable>
 
           <View className="mt-4 items-center gap-0.5 pb-2">
-            <Text className="text-[11px] text-outline">Tasky Mobile v1.4.2</Text>
+            <Text className="text-[11px] text-outline">
+              Tasky Mobile v1.4.2
+            </Text>
             <Text className="text-xs font-medium text-on-surface-variant">
-              {CURRENT_COMPANY} • Operações Integradas
+              {companyDisplayName} • Operações Integradas
             </Text>
           </View>
         </View>
       </ScrollView>
+
+      {/* Modais de Edição de Perfil, Senha e Termos */}
+      <EditPersonalInfoModal
+        visible={editModalVisible}
+        onDismiss={() => setEditModalVisible(false)}
+      />
+      <ChangePasswordModal
+        visible={passwordModalVisible}
+        onDismiss={() => setPasswordModalVisible(false)}
+      />
+      <TermsPrivacyModal
+        visible={termsModalVisible}
+        onDismiss={() => setTermsModalVisible(false)}
+      />
     </View>
   );
 }
