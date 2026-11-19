@@ -9,7 +9,7 @@ type Role = 'admin' | 'worker';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
   const [role, setRole] = useState<Role>('admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,10 +17,12 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
 
   // Autentica o usuário no Firebase e redireciona de acordo com a função (admin ou worker)
   async function handleLogin() {
     setError('');
+    setInfo('');
 
     if (!email.trim() || !password) {
       setError('Informe seu e-mail corporativo e senha.');
@@ -49,6 +51,37 @@ export default function LoginScreen() {
           (err as { message?: string })?.message ??
             'Não foi possível acessar sua conta.'
         );
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Envia o link de redefinição de senha para o e-mail informado no campo
+  async function handleForgotPassword() {
+    setError('');
+    setInfo('');
+
+    if (!email.trim()) {
+      setError('Digite seu e-mail corporativo para recuperar a senha.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await resetPassword(email);
+      // Mensagem neutra: o Firebase não revela se o e-mail está cadastrado
+      setInfo(
+        'Se este e-mail estiver cadastrado, você receberá um link para redefinir a senha.'
+      );
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === 'auth/invalid-email') {
+        setError('E-mail inválido.');
+      } else if (code === 'auth/too-many-requests') {
+        setError('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
+      } else {
+        setError('Não foi possível enviar o e-mail de recuperação.');
       }
     } finally {
       setLoading(false);
@@ -149,7 +182,7 @@ export default function LoginScreen() {
                   Lembrar neste aparelho
                 </Text>
               </Pressable>
-              <Pressable onPress={() => {}}>
+              <Pressable disabled={loading} onPress={handleForgotPassword}>
                 <Text className="text-xs font-semibold text-primary">
                   Esqueceu a senha?
                 </Text>
@@ -158,6 +191,10 @@ export default function LoginScreen() {
 
             {error ? (
               <Text className="px-1 text-xs text-error">{error}</Text>
+            ) : null}
+
+            {info ? (
+              <Text className="px-1 text-xs text-success">{info}</Text>
             ) : null}
 
             <Pressable
