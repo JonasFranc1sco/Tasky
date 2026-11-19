@@ -2,7 +2,8 @@ import { ProfileHeroCard } from '@/components/profile-hero-card';
 import { ProfileMetrics } from '@/components/profile-metrics';
 import { ProfileRow, ProfileSection } from '@/components/profile-section';
 import { ScreenHeader } from '@/components/screen-header';
-import { CURRENT_COMPANY, CURRENT_EMPLOYEE } from '@/constants/tasks';
+import { useAuth } from '@/hooks/auth-context';
+import { useTeam } from '@/hooks/team-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -12,9 +13,24 @@ import { Switch } from 'react-native-paper';
 const CHEVRON = <MaterialCommunityIcons name="chevron-right" size={20} color="#75777F" />;
 
 export default function MyProfileScreen() {
+  const { profile, company, signOut } = useAuth();
+  const { manager } = useTeam();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [reopenAlertsEnabled, setReopenAlertsEnabled] = useState(true);
-  const router = useRouter()
+  const router = useRouter();
+
+  const companyDisplayName =
+    company?.companyName || profile?.companyName || 'Empresa';
+  const roleDisplay = profile?.sector
+    ? `${profile.jobTitle} • ${profile.sector}`
+    : (profile?.jobTitle ?? 'Colaborador');
+
+  // Encerra a sessão do funcionário no Firebase
+  const handleLogout = async () => {
+    await signOut();
+    router.replace('/login');
+  };
+
   return (
     <View className="flex-1 bg-surface">
       <ScreenHeader title="Meu Perfil" />
@@ -25,12 +41,12 @@ export default function MyProfileScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 24 }}
       >
         <ProfileHeroCard
-          name={CURRENT_EMPLOYEE}
-          initials="JF"
-          role="Desenvolvedor Frontend • Desenvolvimento"
-          company={CURRENT_COMPANY}
+          name={profile?.name ?? 'Colaborador'}
+          initials={profile?.initials ?? 'CL'}
+          role={roleDisplay}
+          company={companyDisplayName}
           statusLabel="Em Turno Ativo"
-          employeeCode="#DEV-4821"
+          employeeCode={profile?.employeeCode ?? '#EMP-0001'}
         />
 
         <ProfileMetrics
@@ -61,17 +77,19 @@ export default function MyProfileScreen() {
           <View className="flex-row items-center justify-between px-4 py-3.5">
             <View className="min-w-0 flex-1 flex-row items-center gap-3">
               <View className="h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-container">
-                <Text className="text-[11px] font-semibold text-on-surface">JP</Text>
+                <Text className="text-[11px] font-semibold text-on-surface">
+                  {manager?.initials ?? 'AD'}
+                </Text>
               </View>
               <View className="min-w-0 flex-1">
                 <Text className="text-[10px] font-semibold uppercase tracking-wider text-outline">
                   Meu Gestor Direto
                 </Text>
                 <Text className="text-sm font-medium text-on-surface" numberOfLines={1}>
-                  João Pedro
+                  {manager?.name ?? 'Administrador'}
                 </Text>
                 <Text className="text-[11px] text-on-surface-variant" numberOfLines={1}>
-                  Gerente
+                  {manager?.jobTitle ?? 'Gerente'}
                 </Text>
               </View>
             </View>
@@ -134,7 +152,7 @@ export default function MyProfileScreen() {
         <View>
           <Pressable
             className="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-surface-lowest shadow-sm active:opacity-80"
-            onPress={() => router.replace('/login')}
+            onPress={handleLogout}
           >
             <MaterialCommunityIcons name="logout" size={20} color="#BA1A1A" />
             <Text className="text-base font-semibold text-error">Encerrar Sessão</Text>
@@ -143,7 +161,7 @@ export default function MyProfileScreen() {
           <View className="mt-4 items-center gap-0.5 pb-2">
             <Text className="text-[11px] text-outline">Tasky Mobile v1.4.2</Text>
             <Text className="text-xs font-medium text-on-surface-variant">
-              {CURRENT_COMPANY} • Operações Integradas
+              {companyDisplayName} • Operações Integradas
             </Text>
           </View>
         </View>
