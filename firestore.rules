@@ -1,0 +1,60 @@
+rules_version = '2';
+
+// Regras de segurança do Cloud Firestore — Tasky
+// Documentação: docs/firestore.md
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Funções auxiliares ----------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myEmail() {
+      return request.auth.token.email;
+    }
+
+    function userDoc(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    // Perfil do usuário logado em users/{uid}
+    function me() {
+      return get(userDoc(request.auth.uid)).data;
+    }
+
+    // Usuário logado pertence à empresa
+    function isMemberOf(companyId) {
+      return signedIn()
+        && exists(userDoc(request.auth.uid))
+        && me().companyId == companyId;
+    }
+
+    // Usuário logado é admin da empresa
+    function isAdminOf(companyId) {
+      return isMemberOf(companyId) && me().role == 'admin';
+    }
+
+    function companyExists(companyId) {
+      return exists(/databases/$(database)/documents/companies/$(companyId));
+    }
+
+    // Convite individual válido para entrar como admin
+    function adminInviteMatches(inviteId) {
+      let invitePath = /databases/$(database)/documents/invites/$(inviteId);
+      return exists(invitePath)
+        && get(invitePath).data.companyId == request.resource.data.companyId
+        && get(invitePath).data.role == 'admin'
+        && get(invitePath).data.email == myEmail()
+        && get(invitePath).data.status == 'pending';
+    }
+
+    function validAdminInvite() {
+      let inviteId = request.resource.data.get('inviteId', null);
+      return inviteId is string && adminInviteMatches(inviteId);
+    }
+
+    // Qualquer outro caminho fica bloqueado por padrão
+  }
+}
