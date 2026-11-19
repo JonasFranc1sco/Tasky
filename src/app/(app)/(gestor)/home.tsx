@@ -7,7 +7,7 @@ import { CURRENT_COMPANY } from '@/constants/tasks';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, ScrollView, Text, View } from 'react-native';
-import { Button, Chip, FAB } from 'react-native-paper';
+import { Button, Chip, FAB, Searchbar } from 'react-native-paper';
 
 // Dados definidos localmente no próprio arquivo (sem mock externo)
 const METRICS_DATA = {
@@ -49,13 +49,19 @@ const INITIAL_TASKS: ManagerTask[] = [
 export default function GestorHomeScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [tasks, setTasks] = useState<ManagerTask[]>(INITIAL_TASKS);
   const [delegateVisible, setDelegateVisible] = useState(false);
 
-  const filteredTasks = tasks.filter((task) => {
-    if (filter === 'pending') return task.status === 'pending';
-    if (filter === 'completed') return task.status === 'completed';
-    return true;
+ const filteredTasks = tasks.filter((task) => {
+  const matchesStatus =
+    filter === 'all' || task.status === filter;
+
+  const matchesSearch = task.title
+    .toLowerCase()
+    .includes(searchQuery.trim().toLowerCase());
+
+  return matchesStatus && matchesSearch;
   });
 
   const handleDelegate = (payload: DelegationPayload) => {
@@ -141,7 +147,17 @@ export default function GestorHomeScreen() {
               </View>
 
             </View>
-
+          <Searchbar
+            placeholder="Pesquisar tarefas..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            style={{
+            marginTop: 12,
+            backgroundColor: '#ECEFF0',
+            borderRadius: 12,
+            }}
+            inputStyle={{ fontSize: 14 }}
+/>
             {/* Chips de Filtro com Paper */}
             <ScrollView
               horizontal
