@@ -8,6 +8,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Switch } from 'react-native-paper';
+import { useAuth } from '@/contexts/AuthContext';
 
 const CHEVRON = <MaterialCommunityIcons name="chevron-right" size={20} color="#75777F" />;
 
@@ -20,6 +21,12 @@ const METRICS = {
 
 export default function AdminProfileScreen() {
   const router = useRouter();
+    const { signOut } = useAuth();
+
+  async function handleSignOut() {
+    await signOut();
+    router.replace('/login');
+  }
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [reopenAlertsEnabled, setReopenAlertsEnabled] = useState(true);
 
@@ -120,7 +127,7 @@ export default function AdminProfileScreen() {
         <View>
           <Pressable
             className="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-surface-lowest shadow-sm active:opacity-80"
-            onPress={() => router.replace('/login')}
+            onPress={handleSignOut}
           >
             <MaterialCommunityIcons name="logout" size={20} color="#BA1A1A" />
             <Text className="text-base font-semibold text-error">Encerrar Sessão</Text>
