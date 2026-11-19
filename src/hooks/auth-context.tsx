@@ -12,6 +12,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   reauthenticateWithCredential,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   updatePassword,
   updateProfile,
@@ -56,6 +57,7 @@ type AuthContextValue = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<EmployeeMember>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   updatePersonalInfo: (input: UpdatePersonalInfoInput) => Promise<void>;
   changePassword: (
     currentPassword: string,
@@ -256,6 +258,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCompany(null);
   };
 
+  // Envia o e-mail de redefinição de senha do Firebase Authentication
+  const resetPassword = useCallback(async (email: string) => {
+    await sendPasswordResetEmail(auth, email.trim());
+  }, []);
+
   // Atualiza as informações pessoais do usuário logado (e nome da empresa se for admin)
   const updatePersonalInfo = useCallback(
     async (input: UpdatePersonalInfoInput) => {
@@ -336,10 +343,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signIn,
       signOut,
+      resetPassword,
       updatePersonalInfo,
       changePassword,
     };
-  }, [user, profile, company, loading, updatePersonalInfo, changePassword]);
+  }, [
+    user,
+    profile,
+    company,
+    loading,
+    resetPassword,
+    updatePersonalInfo,
+    changePassword,
+  ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
