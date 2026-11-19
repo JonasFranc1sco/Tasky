@@ -52,6 +52,8 @@ export type UserDocument = {
   role: UserRole;
   status: MemberStatus;
   employeeCode: string;
+  // Convite individual usado no ingresso (validado nas regras do Firestore)
+  inviteId?: string | null;
   pendingTasks: number;
   completedTasks: number;
   createdAt: Timestamp;
