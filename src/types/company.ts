@@ -61,6 +61,7 @@ export type UserDocument = {
 // Modelo unificado de membro da equipe usado nas telas e listagens
 export type EmployeeMember = UserDocument & {
   initials: string;
+  photoURL?: string | null;
   isInvite?: boolean;
   inviteCode?: string;
   statusMessage?: string;

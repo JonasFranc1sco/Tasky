@@ -35,6 +35,14 @@
           "image": "./assets/icon512.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Tasky precisa acessar suas fotos para atualizar sua imagem de perfil.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
       ]
     ]
   }

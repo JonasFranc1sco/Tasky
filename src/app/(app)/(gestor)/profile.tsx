@@ -8,6 +8,7 @@ import {
 import { ProfileRow, ProfileSection } from '@/components/profile-section';
 import { ScreenHeader } from '@/components/screen-header';
 import { useAuth } from '@/hooks/auth-context';
+import { useProfilePhoto } from '@/hooks/use-profile-photo';
 import { useTeam } from '@/hooks/team-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack, useRouter } from 'expo-router';
@@ -31,6 +32,11 @@ export default function AdminProfileScreen() {
   const { width } = useWindowDimensions();
   const isWideMetrics = width >= 600;
   const { profile, company, signOut } = useAuth();
+  const {
+    uploading: photoUploading,
+    error: photoError,
+    pickAndUploadPhoto,
+  } = useProfilePhoto();
   const { metrics } = useTeam();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [reopenAlertsEnabled, setReopenAlertsEnabled] = useState(true);
@@ -63,6 +69,10 @@ export default function AdminProfileScreen() {
         <ProfileHeroCard
           name={profile?.name ?? 'Administrador'}
           initials={profile?.initials ?? 'AD'}
+          photoURL={profile?.photoURL}
+          photoUploading={photoUploading}
+          photoError={photoError}
+          onPhotoPress={pickAndUploadPhoto}
           role={roleDisplay}
           company={companyDisplayName}
           statusLabel="Em Cargo Ativo"
