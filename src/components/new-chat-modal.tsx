@@ -1,4 +1,5 @@
 import { useAuth } from '@/hooks/auth-context';
+import { getResponsiveModalContentStyle } from '@/components/responsive-modal-style';
 import { useTeam } from '@/hooks/team-context';
 import type { EmployeeMember } from '@/types/company';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -9,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Modal, Portal } from 'react-native-paper';
 
@@ -21,6 +23,7 @@ type Props = {
 export function NewChatModal({ visible, onDismiss, onSelectMember }: Props) {
   const { profile } = useAuth();
   const { activeMembers } = useTeam();
+  const { width, height } = useWindowDimensions();
   const [search, setSearch] = useState('');
 
   const currentUid = profile?.uid || profile?.id;
@@ -45,9 +48,12 @@ export function NewChatModal({ visible, onDismiss, onSelectMember }: Props) {
       <Modal
         visible={visible}
         onDismiss={onDismiss}
-        contentContainerStyle={{ margin: 20 }}
+        contentContainerStyle={getResponsiveModalContentStyle(width, height, 560)}
       >
-        <View className="max-h-[80%] rounded-3xl bg-surface-lowest p-5 shadow-sm">
+        <View
+          className="max-h-[80%] rounded-3xl bg-surface-lowest p-5 shadow-sm"
+          style={{ maxHeight: Math.min(height - 64, 720), width: '100%' }}
+        >
           <View className="flex-row items-center justify-between">
             <Text className="text-lg font-bold text-on-surface">
               Nova Conversa
@@ -78,7 +84,7 @@ export function NewChatModal({ visible, onDismiss, onSelectMember }: Props) {
           </View>
 
           <FlatList
-            className="mt-3"
+            className="mt-3 flex-1"
             data={availableColleagues}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ gap: 8, paddingVertical: 4 }}

@@ -5,19 +5,43 @@ import { useAuth } from '@/hooks/auth-context';
 import { useTasks } from '@/hooks/tasks-context';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { Alert, FlatList, Text, View, useWindowDimensions } from 'react-native';
 import { SegmentedButtons } from 'react-native-paper';
 
 export default function TaskQueueScreen() {
     const router = useRouter();
+    const { width } = useWindowDimensions();
+    const numColumns = width >= 1080 ? 2 : 1;
     const { profile } = useAuth();
-    const { tasks, completeTask } = useTasks();
+    const { tasks, loading, error, completeTask } = useTasks();
     const [tab, setTab] = useState<'pending' | 'completed'>('pending');
 
-    const pending = tasks.filter((t) => !t.completedAt);
-    const completed = tasks.filter((t) => t.completedAt);
+    const assignedTasks = tasks.filter((task) =>
+      task.assignee.uid
+        ? task.assignee.uid === profile?.uid
+        : task.assignee.name === 'Colaborador' || task.assignee.name === profile?.name
+    );
+    const pending = assignedTasks.filter((t) => !t.completedAt);
+    const completed = assignedTasks.filter((t) => t.completedAt);
     const list = tab === 'pending' ? pending : completed;
     const highPriorities = pending.filter((t) => t.priority === 'alta').length;
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const completedThisWeek = assignedTasks.filter((task) => {
+      if (!task.completedAt) return false;
+      const completedAt = new Date(task.completedAt);
+      return !Number.isNaN(completedAt.getTime()) && completedAt >= weekStart;
+    }).length;
+
+    const handleComplete = (id: string) => {
+      void completeTask(id).catch((failure: unknown) => {
+        Alert.alert(
+          'Não foi possível concluir',
+          failure instanceof Error ? failure.message : 'Tente novamente.'
+        );
+      });
+    };
 
     return (
     <View className="flex-1 bg-surface">
@@ -25,7 +49,21 @@ export default function TaskQueueScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList
+        key={numColumns}
+        style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}
         data={list}
+        ListEmptyComponent={
+          <Text className="py-6 text-center text-sm text-on-surface-variant">
+            {loading
+              ? 'Sincronizando tarefas...'
+              : error ??
+                (tab === 'pending'
+                  ? 'Você não tem tarefas pendentes.'
+                  : 'Você ainda não concluiu tarefas.')}
+          </Text>
+        }
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? { gap: 12 } : undefined}
         keyExtractor={(t) => t.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 12 }}
         ListHeaderComponent={
@@ -52,9 +90,11 @@ export default function TaskQueueScreen() {
             </View>
           </>
         }
-        ListFooterComponent={tab === 'completed' ? <WeeklyGoalCard done={7} total={9} /> : null}
+        ListFooterComponent={tab === 'completed' ? <WeeklyGoalCard done={completedThisWeek} total={9} /> : null}
         renderItem={({ item }) => (
-          <TaskCard task={item} onPress={() => router.push(`/task/${item.id}`)} onComplete={completeTask} />
+          <View style={{ flex: 1, maxWidth: numColumns > 1 ? '49%' : '100%' }}>
+            <TaskCard task={item} onPress={() => router.push(`/task/${item.id}`)} onComplete={handleComplete} />
+          </View>
         )}
       />
     </View>
