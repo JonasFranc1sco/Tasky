@@ -1,7 +1,8 @@
 import { Task } from '@/constants/tasks';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Text, View } from 'react-native';
-import { Button, IconButton } from 'react-native-paper';
+import { useState } from 'react';
+import { Button, IconButton, Menu } from 'react-native-paper';
 
 type Props = { task: Task; onPress: () => void; onComplete: (id: string) => void};
 
@@ -14,6 +15,7 @@ function completedLabel(iso: string) {
 }
 
 export function TaskCard({ task, onPress, onComplete }: Props) {
+    const [menuVisible, setMenuVisible] = useState(false);
     
     // Variação Task concluída
     if (task.completedAt) {
@@ -62,7 +64,35 @@ export function TaskCard({ task, onPress, onComplete }: Props) {
           {task.sector && task.dueDate && <Text className="text-[11px] text-slate-300">•</Text>}
           {task.dueDate && <Text className="text-[11px] text-on-surface-variant">{task.dueDate}</Text>}
         </View>
-        <IconButton icon="dots-vertical" size={18} onPress={() => {}} />
+        <Menu
+          visible={menuVisible}
+          onDismiss={() => setMenuVisible(false)}
+          anchor={
+            <IconButton
+              icon="dots-vertical"
+              size={18}
+              accessibilityLabel="Ações rápidas da tarefa"
+              onPress={() => setMenuVisible(true)}
+            />
+          }
+        >
+          <Menu.Item
+            leadingIcon="text-box-outline"
+            title="Ver detalhes"
+            onPress={() => {
+              setMenuVisible(false);
+              onPress();
+            }}
+          />
+          <Menu.Item
+            leadingIcon="check"
+            title="Marcar como concluída"
+            onPress={() => {
+              setMenuVisible(false);
+              onComplete(task.id);
+            }}
+          />
+        </Menu>
       </View>
       {task.priority === 'alta' && (
         <Text className="text-[11px] font-semibold text-error">Alta prioridade</Text>

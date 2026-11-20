@@ -8,6 +8,7 @@ import {
 import { ProfileRow, ProfileSection } from '@/components/profile-section';
 import { ScreenHeader } from '@/components/screen-header';
 import { useAuth } from '@/hooks/auth-context';
+import { useManagerTasks } from '@/hooks/manager-tasks-context';
 import { useProfilePhoto } from '@/hooks/use-profile-photo';
 import { useTeam } from '@/hooks/team-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -19,13 +20,6 @@ import { Switch } from 'react-native-paper';
 const CHEVRON = (
   <MaterialCommunityIcons name="chevron-right" size={20} color="#75777F" />
 );
-
-const METRICS = {
-  total: 14,
-  pending: 6,
-  completed: 8,
-  percentage: '57% concluído',
-};
 
 export default function AdminProfileScreen() {
   const router = useRouter();
@@ -39,6 +33,7 @@ export default function AdminProfileScreen() {
     pickAndUploadPhoto,
   } = useProfilePhoto();
   const { metrics } = useTeam();
+  const { metrics: taskMetrics } = useManagerTasks();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [reopenAlertsEnabled, setReopenAlertsEnabled] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -94,22 +89,22 @@ export default function AdminProfileScreen() {
             <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
               <ManagerStatCard
                 title="Total"
-                value={METRICS.total}
-                subtitle="Tarefas ativas"
+                value={taskMetrics.total}
+                subtitle="Tarefas cadastradas"
               />
             </View>
             <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
               <ManagerStatCard
                 title="Pendentes"
-                value={METRICS.pending}
+                value={taskMetrics.pending}
                 subtitle="Requer ação"
               />
             </View>
             <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
               <ManagerStatCard
                 title="Concluídas"
-                value={METRICS.completed}
-                subtitle={METRICS.percentage}
+                value={taskMetrics.completed}
+                subtitle={taskMetrics.completedPercentage}
               />
             </View>
           </View>
@@ -127,7 +122,7 @@ export default function AdminProfileScreen() {
           <ProfileRow
             icon="clipboard-text-outline"
             title="Tarefas da Equipe"
-            subtitle={`${METRICS.total} atribuídas no mês`}
+            subtitle={`${taskMetrics.total} tarefas cadastradas`}
             onPress={() => router.push('/(app)/(gestor)/home')}
             right={CHEVRON}
           />

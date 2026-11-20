@@ -2,7 +2,8 @@ import { TaskControlActionsCard } from '@/components/task-control-actions-card';
 import { TaskDetailHeader } from '@/components/task-detail-header';
 import { TaskInfoCard, type TaskDetailInfo } from '@/components/task-info-card';
 import { TaskNotesCard, type TaskNote } from '@/components/task-notes-card';
-import { Stack, useRouter } from 'expo-router';
+import { useManagerTasks } from '@/hooks/manager-tasks-context';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
 import { Snackbar } from 'react-native-paper';
@@ -34,7 +35,24 @@ const INITIAL_NOTES: TaskNote[] = [
 
 export default function GestorViewTaskScreen() {
   const router = useRouter();
-  const [task, setTask] = useState<TaskDetailInfo>(INITIAL_TASK);
+  const { taskId } = useLocalSearchParams<{ taskId?: string }>();
+  const requestedTaskId = Array.isArray(taskId) ? taskId[0] : taskId;
+  const { tasks, updateTaskStatus } = useManagerTasks();
+  const selectedTask = tasks.find((item) => item.id === requestedTaskId);
+  const [fallbackTask, setFallbackTask] = useState<TaskDetailInfo>(INITIAL_TASK);
+  const task: TaskDetailInfo = selectedTask
+    ? {
+        id: selectedTask.id,
+        code: `TSK-${selectedTask.id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}`,
+        title: selectedTask.title,
+        description: selectedTask.description,
+        status: selectedTask.status,
+        assignee: selectedTask.assignee,
+        dueDate: selectedTask.time || 'Sem prazo definido',
+        createdAt: formatTaskDate(selectedTask.createdAt) ?? '—',
+        completedAt: formatTaskDate(selectedTask.completedAt),
+      }
+    : fallbackTask;
   const [notes, setNotes] = useState<TaskNote[]>(INITIAL_NOTES);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
@@ -51,11 +69,15 @@ export default function GestorViewTaskScreen() {
   };
 
   const handleValidateAndArchive = () => {
-    setTask((prev) => ({
-      ...prev,
-      status: 'completed',
-      completedAt: prev.completedAt ?? '18/10 às 15:42',
-    }));
+    if (selectedTask) {
+      updateTaskStatus(selectedTask.id, 'completed');
+    } else {
+      setFallbackTask((current) => ({
+        ...current,
+        status: 'completed',
+        completedAt: current.completedAt ?? '18/10 às 15:42',
+      }));
+    }
     Alert.alert(
       'Tarefa Validada',
       'A tarefa foi validada e arquivada com sucesso pelo gestor.',
@@ -64,11 +86,15 @@ export default function GestorViewTaskScreen() {
   };
 
   const handleReopenTask = () => {
-    setTask((prev) => ({
-      ...prev,
-      status: 'pending',
-      completedAt: undefined,
-    }));
+    if (selectedTask) {
+      updateTaskStatus(selectedTask.id, 'pending');
+    } else {
+      setFallbackTask((current) => ({
+        ...current,
+        status: 'pending',
+        completedAt: undefined,
+      }));
+    }
     Alert.alert(
       'Tarefa Reaberta',
       'A tarefa foi reaberta com status Pendente para revisão da equipe.',
@@ -123,4 +149,14 @@ export default function GestorViewTaskScreen() {
       </Snackbar>
     </View>
   );
+}
+
+function formatTaskDate(value?: string) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
 }

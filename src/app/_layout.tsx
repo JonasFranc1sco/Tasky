@@ -11,6 +11,7 @@ import "../global.css";
 
 import { taskyTheme } from "@/constants/theme";
 import { AuthProvider } from "@/hooks/auth-context";
+import { ManagerTasksProvider } from "@/hooks/manager-tasks-context";
 import { ChatProvider } from "@/hooks/chat-context";
 import { TasksProvider } from "@/hooks/tasks-context";
 import { TeamProvider } from "@/hooks/team-context";
@@ -25,22 +26,24 @@ export default function TabLayout() {
         <TeamProvider>
           <ChatProvider>
             <TasksProvider>
-              <PaperProvider
-                theme={taskyTheme}
-                settings={{
-                  icon: ({ name, color, size }) => (
-                    <MaterialCommunityIcons
-                      name={name as keyof typeof MaterialCommunityIcons.glyphMap}
-                      color={color}
-                      size={size}
-                    />
-                  ),
-                }}
-              >
-                <View style={styles.container}>
-                  <Slot />
-                </View>
-              </PaperProvider>
+              <ManagerTasksProvider>
+                <PaperProvider
+                  theme={taskyTheme}
+                  settings={{
+                    icon: ({ name, color, size }) => (
+                      <MaterialCommunityIcons
+                        name={name as keyof typeof MaterialCommunityIcons.glyphMap}
+                        color={color}
+                        size={size}
+                      />
+                    ),
+                  }}
+                >
+                  <View style={styles.container}>
+                    <Slot />
+                  </View>
+                </PaperProvider>
+              </ManagerTasksProvider>
             </TasksProvider>
           </ChatProvider>
         </TeamProvider>

@@ -1,50 +1,14 @@
 import { DelegateTaskModal, DelegationPayload } from '@/components/delegate-task-modal';
 import { ManagerHeroCard } from '@/components/manager-hero-card';
 import { ManagerStatCard } from '@/components/manager-stat-card';
-import { ManagerTaskCard, type ManagerTask } from '@/components/manager-task-card';
+import { ManagerTaskCard } from '@/components/manager-task-card';
 import { ScreenHeader } from '@/components/screen-header';
 import { useAuth } from '@/hooks/auth-context';
+import { useManagerTasks } from '@/hooks/manager-tasks-context';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { Button, Chip, FAB, Searchbar } from 'react-native-paper';
-
-// Dados definidos localmente no próprio arquivo (sem mock externo)
-const METRICS_DATA = {
-  total: 14,
-  pending: 6,
-  completed: 8,
-  completedPercentage: '57% concluído',
-};
-
-const INITIAL_TASKS: ManagerTask[] = [
-  {
-    id: '1',
-    title: 'Code Review do PR #482',
-    description: 'Revisar os arquivos alterados, validar a cobertura de testes e aprovar ou solicitar correções.',
-    assignee: 'Rafael Horeay',
-    time: 'Hoje, 17:00',
-    status: 'pending',
-    category: 'Alta Prioridade',
-  },
-  {
-    id: '2',
-    title: 'Configuração do Runner CI/CD',
-    description: 'Instalar o novo runner, definir tags de execução e revisar os workflows de deploy.',
-    assignee: 'Eduarda Najara',
-    time: 'Hoje, 11:30',
-    status: 'completed',
-  },
-  {
-    id: '3',
-    title: 'Auditoria de Cobertura de Testes',
-    description: 'Levantar a cobertura dos módulos críticos e gerar relatório para o Sprint.',
-    assignee: 'Kemily Freitas',
-    time: 'Amanhã, 18:00',
-    status: 'pending',
-    category: 'Rotina',
-  },
-];
 
 export default function GestorHomeScreen() {
   const router = useRouter();
@@ -54,7 +18,7 @@ export default function GestorHomeScreen() {
   const isWideMetrics = width >= 600;
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [tasks, setTasks] = useState<ManagerTask[]>(INITIAL_TASKS);
+  const { tasks, metrics, addTask, updateTaskStatus } = useManagerTasks();
   const [delegateVisible, setDelegateVisible] = useState(false);
 
   const companyDisplayName =
@@ -73,18 +37,14 @@ export default function GestorHomeScreen() {
   });
 
   const handleDelegate = (payload: DelegationPayload) => {
-    setTasks((prev) => [
-      {
-        id: `-${Date.now()}`,
-        title: payload.title,
-        description: payload.description,
-        assignee: payload.assignee.name,
-        time: payload.dueDate,
-        status: 'pending',
-        category: payload.priority,
-      },
-      ...prev,
-    ]);
+    addTask({
+      title: payload.title,
+      description: payload.description,
+      assignee: payload.assignee.name,
+      time: payload.dueDate,
+      status: 'pending',
+      category: payload.priority,
+    });
     setDelegateVisible(false);
   };
 
@@ -120,22 +80,22 @@ export default function GestorHomeScreen() {
               <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
                 <ManagerStatCard
                   title="Total"
-                  value={METRICS_DATA.total}
-                  subtitle="Tarefas ativas"
+                  value={metrics.total}
+                  subtitle="Tarefas cadastradas"
                 />
               </View>
               <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
                 <ManagerStatCard
                   title="Pendentes"
-                  value={METRICS_DATA.pending}
+                  value={metrics.pending}
                   subtitle="Requer ação"
                 />
               </View>
               <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
                 <ManagerStatCard
                   title="Concluídas"
-                  value={METRICS_DATA.completed}
-                  subtitle={METRICS_DATA.completedPercentage}
+                  value={metrics.completed}
+                  subtitle={metrics.completedPercentage}
                 />
               </View>
             </View>
@@ -162,7 +122,7 @@ export default function GestorHomeScreen() {
                 </Text>
                 <View className="rounded-full bg-surface-container px-2 py-0.5">
                   <Text className="text-xs font-medium text-on-surface-variant">
-                    {filteredTasks.length} ativas
+                    {filteredTasks.length} tarefas
                   </Text>
                 </View>
               </View>
@@ -228,7 +188,7 @@ export default function GestorHomeScreen() {
                   fontSize: 12,
                 }}
               >
-                Pendentes ({METRICS_DATA.pending})
+                Pendentes ({metrics.pending})
               </Chip>
 
               <Chip
@@ -255,7 +215,7 @@ export default function GestorHomeScreen() {
                   fontSize: 12,
                 }}
               >
-                Concluídas ({METRICS_DATA.completed})
+                Concluídas ({metrics.completed})
               </Chip>
             </ScrollView>
           </>
@@ -264,7 +224,17 @@ export default function GestorHomeScreen() {
           <View style={{ flex: 1, maxWidth: numColumns > 1 ? '49%' : '100%' }}>
             <ManagerTaskCard
               task={item}
-              onPress={() => router.push('/(app)/(gestor)/view_task')}
+              onPress={() =>
+                router.push(
+                  `/(app)/(gestor)/view_task?taskId=${encodeURIComponent(item.id)}`
+                )
+              }
+              onToggleStatus={() =>
+                updateTaskStatus(
+                  item.id,
+                  item.status === 'completed' ? 'pending' : 'completed'
+                )
+              }
             />
           </View>
         )}
