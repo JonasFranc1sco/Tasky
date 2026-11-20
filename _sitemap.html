@@ -1,9 +1,13 @@
 <!DOCTYPE html><html  lang="pt-BR"><head><title data-rh="true"></title><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><meta name="theme-color" content="#2563eb"/><link rel="manifest" href="/Tasky/manifest.json"/><script>
-if ('serviceWorker' in navigator) {
+if (
+  'serviceWorker' in navigator &&
+  window.location.hostname !== 'localhost' &&
+  window.location.hostname !== '127.0.0.1'
+) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/Tasky/sw.js', { scope: '/Tasky/' })
-      .catch((error) => console.error('Service worker registration failed:', error));
+      .catch((error) => console.warn('Service worker registration failed:', error));
   });
 }
 </script><style id="expo-reset">#root,body,html{height:100%}body{overflow:hidden}#root{display:flex}</style><style id="react-native-stylesheet">[stylesheet-group="0"]{}
@@ -468,6 +472,6 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 @keyframes r-1pzkwqh{0%{transform:translateY(100%);}100%{transform:translateY(0%);}}
 @keyframes r-imtty0{0%{opacity:0;}100%{opacity:1;}}
 @keyframes r-q67da2{0%{transform:translateX(-100%);}100%{transform:translateX(400%);}}
-@keyframes r-t2lo5v{0%{opacity:1;}100%{opacity:0;}}</style><link rel="icon" href="/Tasky/favicon.ico"/><script type="module">globalThis.__EXPO_ROUTER_HYDRATE__=true;</script><link rel="preload" href="/Tasky/_expo/static/css/web-5b376f3a8b2c2b6ff2ef4591a4402413.css" as="style">
-<link rel="stylesheet" href="/Tasky/_expo/static/css/web-5b376f3a8b2c2b6ff2ef4591a4402413.css"></head><body><div id="root"><div class="css-g5y9jx r-13awgt0"></div></div><script src="/Tasky/_expo/static/js/web/entry-71e9f3c4a56532963fd6611ff3f13d5d.js" defer></script>
+@keyframes r-t2lo5v{0%{opacity:1;}100%{opacity:0;}}</style><link rel="icon" href="/Tasky/favicon.ico"/><script type="module">globalThis.__EXPO_ROUTER_HYDRATE__=true;</script><link rel="preload" href="/Tasky/_expo/static/css/web-40de22f9d4546f5daa46c88b2c7ca885.css" as="style">
+<link rel="stylesheet" href="/Tasky/_expo/static/css/web-40de22f9d4546f5daa46c88b2c7ca885.css"></head><body><div id="root"><div class="css-g5y9jx r-13awgt0"></div></div><script src="/Tasky/_expo/static/js/web/entry-2e4ecb2487d28ee5020115598cb99d63.js" defer></script>
 </body></html>
