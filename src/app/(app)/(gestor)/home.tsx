@@ -9,7 +9,16 @@ import { useTasks } from '@/hooks/tasks-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack, useRouter } from 'expo-router';
 import { useMemo, useState, type ComponentProps } from 'react';
-import { Alert, FlatList, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+
+import {
+  Alert,
+  FlatList,
+  ScrollView,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+
 import {
   Button,
   Chip,
@@ -20,6 +29,94 @@ import {
   Snackbar,
 } from 'react-native-paper';
 
+// Dados definidos localmente no próprio arquivo (sem mock externo)
+const METRICS_DATA = {
+  total: 14,
+  pending: 6,
+  completed: 8,
+  completedPercentage: '57% concluído',
+};
+
+const INITIAL_TASKS: ManagerTask[] = [
+  {
+    id: '1',
+    title: 'Code Review do PR #482',
+    description: 'Revisar os arquivos alterados, validar a cobertura de testes e aprovar ou solicitar correções.',
+    assignee: 'Rafael Horeay',
+    time: 'Hoje, 17:00',
+    status: 'pending',
+    category: 'Alta Prioridade',
+  },
+  {
+    id: '2',
+    title: 'Configuração do Runner CI/CD',
+    description: 'Instalar o novo runner, definir tags de execução e revisar os workflows de deploy.',
+    assignee: 'Eduarda Najara',
+    time: 'Hoje, 11:30',
+    status: 'completed',
+  },
+  {
+    id: '3',
+    title: 'Auditoria de Cobertura de Testes',
+    description: 'Levantar a cobertura dos módulos críticos e gerar relatório para o Sprint.',
+    assignee: 'Kemily Freitas',
+    time: 'Amanhã, 18:00',
+    status: 'pending',
+    category: 'Rotina',
+  },
+];
+function getTaskDate(time: string): number {
+  if (!time) return NaN;
+
+  const value = time.trim();
+
+  // Datas no formato DD/MM/AAAA
+  const dateMatch = value.match(
+    /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/
+  );
+
+  if (dateMatch) {
+    const [, day, month, year, hour = '0', minute = '0'] = dateMatch;
+
+    return new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute)
+    ).getTime();
+  }
+
+  // Datas relativas
+  const now = new Date();
+
+  if (value.startsWith('Hoje')) {
+    const result = new Date(now);
+    const match = value.match(/(\d{1,2}):(\d{2})/);
+
+    if (match) {
+      result.setHours(Number(match[1]), Number(match[2]), 0, 0);
+    }
+
+    return result.getTime();
+  }
+
+  if (value.startsWith('Amanhã')) {
+    const result = new Date(now);
+    result.setDate(result.getDate() + 1);
+
+    const match = value.match(/(\d{1,2}):(\d{2})/);
+
+    if (match) {
+      result.setHours(Number(match[1]), Number(match[2]), 0, 0);
+    }
+
+    return result.getTime();
+  }
+
+  // Datas ISO
+  return Date.parse(value);
+}
 export default function GestorHomeScreen() {
   const router = useRouter();
   const { profile, company } = useAuth();
@@ -32,6 +129,18 @@ export default function GestorHomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [employeeFilter, setEmployeeFilter] = useState('all');
   const [sectorFilter, setSectorFilter] = useState('all');
+  const [dateSort, setDateSort] = useState<'default' | 'asc' | 'desc'>('default');
+  const [alphabeticalSort, setAlphabeticalSort] =
+  useState<'default' | 'asc' | 'desc'>('default');
+  const handleClearFilters = () => {
+  setSearchQuery('');
+  setEmployeeFilter('all');
+  setSectorFilter('all');
+  setPriorityFilter('all');
+  setDateSort('default');
+  setFilter('all');
+  setAlphabeticalSort('default');
+};
   const [priorityFilter, setPriorityFilter] = useState('all');
   const {
     tasks: allTasks,
@@ -64,12 +173,20 @@ export default function GestorHomeScreen() {
 
   const managerDisplayName = profile?.name || 'Gestor';
 
-  const filteredTasks = tasks.filter((task) => {
-    const matchesStatus =
-      filter === 'all' ||
-      (filter === 'archived'
-        ? !!task.archivedAt
-        : task.status === filter);
+const sectors = [
+  ...new Set(
+    tasks
+      .map((task) => task.sector)
+      .filter((sector): sector is string => Boolean(sector))
+  ),
+];
+
+const filteredTasks = tasks.filter((task) => {
+  const matchesStatus =
+    filter === 'all' ||
+    (filter === 'archived'
+      ? !!task.archivedAt
+      : task.status === filter);
 
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
     const matchesSearch = [
@@ -79,46 +196,76 @@ export default function GestorHomeScreen() {
       task.sector ?? '',
     ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
 
-    const matchesPriority =
-      priorityFilter === 'all' || task.category === priorityFilter;
-
     const matchesEmployee =
       employeeFilter === 'all' || task.assignee === employeeFilter;
 
     const matchesSector =
       sectorFilter === 'all' || task.sector === sectorFilter;
 
-    return (
-      matchesStatus &&
-      matchesSearch &&
-      matchesPriority &&
-      matchesEmployee &&
-      matchesSector
-    );
+  return (
+    matchesStatus &&
+    matchesSearch &&
+    matchesPriority &&
+    matchesEmployee &&
+    matchesSector
+  );
+});
+const sortedTasks = [...filteredTasks].sort((a, b) => {
+  if (alphabeticalSort === 'asc') {
+    return a.title.localeCompare(b.title, 'pt-BR');
+  }
+
+  if (alphabeticalSort === 'desc') {
+    return b.title.localeCompare(a.title, 'pt-BR');
+  }
+
+  if (dateSort !== 'default') {
+    const dateA = getTaskDate(a.time);
+    const dateB = getTaskDate(b.time);
+
+    if (!Number.isFinite(dateA) && !Number.isFinite(dateB)) return 0;
+    if (!Number.isFinite(dateA)) return 1;
+    if (!Number.isFinite(dateB)) return -1;
+
+    return dateSort === 'asc'
+      ? dateA - dateB
+      : dateB - dateA;
+  }
+
+  return 0;
+});
+const totalFilteredTasks = filteredTasks.length;
+const activeFiltersCount = [
+  searchQuery.trim() !== '',
+  priorityFilter !== 'all',
+  employeeFilter !== 'all',
+  sectorFilter !== 'all',
+  dateSort !== 'default',
+  alphabeticalSort !== 'default',
+  filter !== 'all',
+].filter(Boolean).length;
+  const handleDelegate = async (payload: DelegationPayload) => {
+  await addTask({
+    name: payload.title,
+    description: payload.description,
+    assignee: {
+      name: payload.assignee.name,
+      uid: payload.assignee.uid,
+    },
+    dueDate: payload.dueDate,
+    sector: payload.sector,
+    priority:
+      payload.priority === 'Alta Prioridade'
+        ? 'alta'
+        : payload.priority === 'Baixa'
+          ? 'baixa'
+          : 'media',
+    category: payload.priority,
   });
 
-  const handleDelegate = async (payload: DelegationPayload) => {
-    await addTask({
-      name: payload.title,
-      description: payload.description,
-      assignee: {
-        name: payload.assignee.name,
-        uid: payload.assignee.uid,
-      },
-      dueDate: payload.dueDate,
-      sector: payload.sector,
-      priority:
-        payload.priority === 'Alta Prioridade'
-          ? 'alta'
-          : payload.priority === 'Baixa'
-            ? 'baixa'
-            : 'media',
-      category: payload.priority,
-    });
-
-    setDelegateVisible(false);
-    setSnackbarMessage('Tarefa delegada e sincronizada.');
-  };
+  setDelegateVisible(false);
+  setSnackbarMessage('Tarefa delegada e sincronizada.');
+};
 
   const handleDeleteTask = (task: ManagerTask) => {
     setDeleteTaskError(null);
@@ -150,23 +297,93 @@ export default function GestorHomeScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList
-        key={numColumns}
-        style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}
         data={filteredTasks}
-        ListEmptyComponent={
-          <Text className="py-6 text-center text-sm text-on-surface-variant">
-            {tasksLoading
-              ? 'Sincronizando tarefas...'
-              : tasksError ?? 'Nenhuma tarefa cadastrada nesta empresa.'}
-          </Text>
-        }
-        numColumns={numColumns}
-        columnWrapperStyle={numColumns > 1 ? { gap: 12 } : undefined}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 12 }}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+  !tasksLoading ? (
+    <View
+      style={{
+        alignItems: 'center',
+        paddingVertical: 40,
+        paddingHorizontal: 20,
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 18,
+          fontWeight: '700',
+          color: '#0F2042',
+          marginBottom: 8,
+          textAlign: 'center',
+        }}
+      >
+        Nenhuma tarefa encontrada
+      </Text>
+
+      <Text
+        style={{
+          fontSize: 14,
+          color: '#45464E',
+          textAlign: 'center',
+          marginBottom: 16,
+        }}
+      >
+        Tente alterar os filtros ou limpar a pesquisa
+        para visualizar outras tarefas.
+      </Text>
+
+      <Button
+        mode="contained"
+        icon="filter-remove"
+        onPress={handleClearFilters}
+      >
+        {activeFiltersCount > 0 && (
+  <View
+    style={{
+      marginTop: 12,
+      padding: 10,
+      backgroundColor: '#E8EEF8',
+      borderRadius: 12,
+    }}
+  >
+    <Text
+      style={{
+        color: '#0F2042',
+        fontSize: 13,
+        fontWeight: '600',
+      }}
+    >
+      {activeFiltersCount === 1
+        ? '1 filtro ativo'
+        : `${activeFiltersCount} filtros ativos`}
+    </Text>
+  </View>
+)}
+        Limpar filtros
+      </Button>
+    </View>
+  ) : null
+}
         ListHeaderComponent={
           <>
+          <Text
+  style={{
+    marginBottom: 12,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#45464E',
+  }}
+>
+  {totalFilteredTasks === 0
+    ? 'Nenhuma tarefa encontrada'
+    : `${totalFilteredTasks} ${
+        totalFilteredTasks === 1
+          ? 'tarefa encontrada'
+          : 'tarefas encontradas'
+      }`}
+</Text>
             {/* Banner do Gestor */}
             <ManagerHeroCard
               greeting={`Olá, ${managerDisplayName} 👋`}
@@ -249,9 +466,124 @@ export default function GestorHomeScreen() {
             inputStyle={{ fontSize: 14 }}
           />
 
-          <Text className="mt-4 text-sm font-semibold text-on-surface">
-            Status
-          </Text>
+          {employees.map((employee) => (
+            <Chip
+              key={employee}
+              selected={employeeFilter === employee}
+              onPress={() => setEmployeeFilter(employee)}
+            >
+              {employee}
+            </Chip>
+          ))}
+        </ScrollView>
+
+        <View className="mt-3 flex-row flex-wrap gap-2">
+          {[
+            { label: 'Todas prioridades', value: 'all' },
+            { label: 'Alta', value: 'Alta Prioridade' },
+            { label: 'Rotina', value: 'Rotina' },
+            { label: 'Baixa', value: 'Baixa' },
+          ].map((item) => (
+            <Chip
+              key={item.value}
+              selected={priorityFilter === item.value}
+              onPress={() => setPriorityFilter(item.value)}
+              style={{
+                backgroundColor:
+                  priorityFilter === item.value ? '#0F2042' : '#ECEFF0',
+                borderRadius: 12,
+              }}
+              textStyle={{
+                color:
+                  priorityFilter === item.value ? '#FFFFFF' : '#45464E',
+                fontSize: 12,
+              }}
+            >
+              {item.label}
+            </Chip>
+          ))}
+        </View>
+
+        <Text className="mt-4 text-sm font-semibold text-on-surface">
+          Ordenar por prazo
+        </Text>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mt-2"
+          contentContainerStyle={{ gap: 8 }}
+        >
+          <Chip
+            selected={dateSort === 'default'}
+            onPress={() => setDateSort('default')}
+          >
+            Padrão
+          </Chip>
+
+          <Chip
+            selected={dateSort === 'asc'}
+            onPress={() => {
+              setDateSort('asc');
+              setAlphabeticalSort('default');
+            }}
+          >
+            Mais próximas
+          </Chip>
+
+          <Chip
+            selected={dateSort === 'desc'}
+            onPress={() => {
+              setDateSort('desc');
+              setAlphabeticalSort('default');
+            }}
+          >
+            Mais distantes
+          </Chip>
+        </ScrollView>
+
+        <Text className="mt-4 text-sm font-semibold text-on-surface">
+          Ordenar por título
+        </Text>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mt-2"
+          contentContainerStyle={{ gap: 8 }}
+        >
+          <Chip
+            selected={alphabeticalSort === 'default'}
+            onPress={() => setAlphabeticalSort('default')}
+          >
+            Padrão
+          </Chip>
+
+          <Chip
+            selected={alphabeticalSort === 'asc'}
+            onPress={() => {
+              setAlphabeticalSort('asc');
+              setDateSort('default');
+            }}
+          >
+            A–Z
+          </Chip>
+
+          <Chip
+            selected={alphabeticalSort === 'desc'}
+            onPress={() => {
+              setAlphabeticalSort('desc');
+              setDateSort('default');
+            }}
+          >
+            Z–A
+          </Chip>
+        </ScrollView>
+
+        {/* Filtros de status */}
+        <Text className="mt-4 text-sm font-semibold text-on-surface">
+          Status
+        </Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -370,6 +702,14 @@ export default function GestorHomeScreen() {
                 />
               ))}
             </ScrollView>
+            <Button
+  mode="outlined"
+  icon="filter-remove"
+  onPress={handleClearFilters}
+  style={{ marginVertical: 12 }}
+>
+  Limpar filtros
+</Button>
           </>
         }
         renderItem={({ item }) => (
