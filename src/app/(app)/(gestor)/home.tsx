@@ -58,9 +58,6 @@ export default function GestorHomeScreen() {
     const matchesPriority =
       priorityFilter === 'all' || task.category === priorityFilter;
 
-    const matchesPriority =
-      priorityFilter === 'all' || task.category === priorityFilter;
-
     const matchesEmployee =
       employeeFilter === 'all' || task.assignee === employeeFilter;
 
