@@ -58,9 +58,15 @@ export default function GestorHomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [employeeFilter, setEmployeeFilter] = useState('all');
   const [sectorFilter, setSectorFilter] = useState('all');
- const [dateSort, setDateSort] = useState<
-  'default' | 'asc' | 'desc'
->('default');
+  const [dateSort, setDateSort] = useState<'default' | 'asc' | 'desc'>('default');
+  const handleClearFilters = () => {
+  setSearchQuery('');
+  setEmployeeFilter('all');
+  setSectorFilter('all');
+  setPriorityFilter('all');
+  setDateSort('default');
+  setFilter('all');
+};
   const [priorityFilter, setPriorityFilter] = useState('all');
   const {
     tasks: allTasks,
@@ -412,6 +418,14 @@ export default function GestorHomeScreen() {
                 Concluídas ({metrics.completed})
               </Chip>
             </ScrollView>
+            <Button
+  mode="outlined"
+  icon="filter-remove"
+  onPress={handleClearFilters}
+  style={{ marginVertical: 12 }}
+>
+  Limpar filtros
+</Button>
           </>
         }
         renderItem={({ item }) => (
