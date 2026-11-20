@@ -1,36 +1,86 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Pressable, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  Text,
+  View,
+} from 'react-native';
 
 type Props = {
   name: string;
   initials: string;
+  photoURL?: string | null;
+  photoUploading?: boolean;
+  photoUploadProgress?: number;
+  photoError?: string | null;
   role: string;
   company: string;
   statusLabel: string;
   employeeCode: string;
   badgeLabel?: string;
   onEditPress?: () => void;
+  onPhotoPress?: () => void;
 };
 
 export function ProfileHeroCard({
   name,
   initials,
+  photoURL,
+  photoUploading = false,
+  photoUploadProgress = 0,
+  photoError,
   role,
   company,
   statusLabel,
   employeeCode,
   badgeLabel = 'Você',
   onEditPress,
+  onPhotoPress,
 }: Props) {
   return (
     <View className="rounded-2xl bg-surface-lowest p-4 shadow-sm">
       <View className="flex-row items-start gap-4">
         <View className="relative shrink-0">
-          <View className="h-20 w-20 items-center justify-center rounded-2xl bg-surface-container shadow-sm">
-            <Text className="text-lg font-bold text-on-surface">{initials}</Text>
-          </View>
-          <View className="absolute -bottom-1 -right-1 h-4 w-4 items-center justify-center rounded-full bg-surface-lowest">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Alterar foto do perfil"
+            accessibilityHint="Abre a galeria para escolher uma nova foto."
+            disabled={photoUploading}
+            onPress={onPhotoPress}
+            className="h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-surface-container shadow-sm active:opacity-80"
+          >
+            {photoURL ? (
+              <Image
+                source={{ uri: photoURL }}
+                resizeMode="cover"
+                style={{ width: 80, height: 80 }}
+              />
+            ) : (
+              <Text className="text-lg font-bold text-on-surface">
+                {initials}
+              </Text>
+            )}
+          </Pressable>
+          <View
+            pointerEvents="none"
+            className="absolute -top-1 -right-1 h-4 w-4 items-center justify-center rounded-full bg-surface-lowest"
+          >
             <View className="h-2.5 w-2.5 rounded-full bg-[#006A61]" />
+          </View>
+          <View
+            pointerEvents="none"
+            className="absolute -bottom-1 -right-1 h-7 w-7 items-center justify-center rounded-full border-2 border-surface-lowest bg-primary"
+          >
+            {photoUploading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <MaterialCommunityIcons
+                name="camera-outline"
+                size={14}
+                color="#FFFFFF"
+              />
+            )}
           </View>
         </View>
 
@@ -54,7 +104,7 @@ export function ProfileHeroCard({
               {company}
             </Text>
           </View>
-          <View className="mt-2 flex-row items-center gap-2">
+          <View className="mt-2 flex-row flex-wrap items-center gap-2">
             <View className="flex-row items-center gap-1 rounded-full bg-[#006A61]/10 px-2 py-0.5">
               <View className="h-1.5 w-1.5 rounded-full bg-[#006A61]" />
               <Text className="text-[11px] font-medium text-[#006A61]">{statusLabel}</Text>
@@ -65,6 +115,17 @@ export function ProfileHeroCard({
           </View>
         </View>
       </View>
+
+      {photoUploading ? (
+        <Text
+          accessibilityLiveRegion="polite"
+          className="mt-2 text-xs text-on-surface-variant"
+        >
+          Enviando foto de perfil: {photoUploadProgress}%
+        </Text>
+      ) : photoError ? (
+        <Text className="mt-2 text-xs text-error">{photoError}</Text>
+      ) : null}
 
       <Pressable
         className="mt-4 h-10 flex-row items-center justify-center gap-2 rounded-xl bg-surface-container active:opacity-80"

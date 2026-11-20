@@ -1,6 +1,7 @@
 import { ManagerStatCard } from '@/components/manager-stat-card';
 import { ProfileHeroCard } from '@/components/profile-hero-card';
 import {
+  ChangeEmailModal,
   ChangePasswordModal,
   EditPersonalInfoModal,
   TermsPrivacyModal,
@@ -8,31 +9,36 @@ import {
 import { ProfileRow, ProfileSection } from '@/components/profile-section';
 import { ScreenHeader } from '@/components/screen-header';
 import { useAuth } from '@/hooks/auth-context';
+import { useTasks } from '@/hooks/tasks-context';
+import { useProfilePhoto } from '@/hooks/use-profile-photo';
 import { useTeam } from '@/hooks/team-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { Switch } from 'react-native-paper';
 
 const CHEVRON = (
   <MaterialCommunityIcons name="chevron-right" size={20} color="#75777F" />
 );
 
-const METRICS = {
-  total: 14,
-  pending: 6,
-  completed: 8,
-  percentage: '57% concluído',
-};
-
 export default function AdminProfileScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isWideMetrics = width >= 600;
   const { profile, company, signOut } = useAuth();
+  const {
+    uploading: photoUploading,
+    progress: photoUploadProgress,
+    error: photoError,
+    pickAndUploadPhoto,
+  } = useProfilePhoto();
   const { metrics } = useTeam();
+  const { metrics: taskMetrics } = useTasks();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [reopenAlertsEnabled, setReopenAlertsEnabled] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [emailModalVisible, setEmailModalVisible] = useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [termsModalVisible, setTermsModalVisible] = useState(false);
 
@@ -54,12 +60,18 @@ export default function AdminProfileScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <ScrollView
+        style={{ width: '100%', maxWidth: 960, alignSelf: 'center' }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 24 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 24, flexGrow: 1 }}
       >
         <ProfileHeroCard
           name={profile?.name ?? 'Administrador'}
           initials={profile?.initials ?? 'AD'}
+          photoURL={profile?.photoURL}
+          photoUploading={photoUploading}
+          photoUploadProgress={photoUploadProgress}
+          photoError={photoError}
+          onPhotoPress={pickAndUploadPhoto}
           role={roleDisplay}
           company={companyDisplayName}
           statusLabel="Em Cargo Ativo"
@@ -72,22 +84,38 @@ export default function AdminProfileScreen() {
           <Text className="px-1 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
             Desempenho & Escala
           </Text>
-          <View className="mt-1 flex-row gap-2.5">
-            <ManagerStatCard
-              title="Total"
-              value={METRICS.total}
-              subtitle="Tarefas ativas"
-            />
-            <ManagerStatCard
-              title="Pendentes"
-              value={METRICS.pending}
-              subtitle="Requer ação"
-            />
-            <ManagerStatCard
-              title="Concluídas"
-              value={METRICS.completed}
-              subtitle={METRICS.percentage}
-            />
+          <View
+            className="mt-1 gap-2.5"
+            style={{ flexDirection: 'row', flexWrap: isWideMetrics ? 'nowrap' : 'wrap' }}
+          >
+            <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+              <ManagerStatCard
+                title="Total"
+                value={taskMetrics.total}
+                subtitle={taskMetrics.completedPercentage}
+              />
+            </View>
+            <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+              <ManagerStatCard
+                title="Pendentes"
+                value={taskMetrics.pending}
+                subtitle="Requer ação"
+              />
+            </View>
+            <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+              <ManagerStatCard
+                title="Concluídas"
+                value={taskMetrics.completed}
+                subtitle="Aguardam validação"
+              />
+            </View>
+            <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+              <ManagerStatCard
+                title="Arquivadas"
+                value={taskMetrics.archived}
+                subtitle="Tarefas validadas"
+              />
+            </View>
           </View>
         </View>
 
@@ -103,7 +131,7 @@ export default function AdminProfileScreen() {
           <ProfileRow
             icon="clipboard-text-outline"
             title="Tarefas da Equipe"
-            subtitle={`${METRICS.total} atribuídas no mês`}
+            subtitle={`${taskMetrics.total} tarefas • ${taskMetrics.archived} arquivadas`}
             onPress={() => router.push('/(app)/(gestor)/home')}
             right={CHEVRON}
           />
@@ -140,6 +168,14 @@ export default function AdminProfileScreen() {
         </ProfileSection>
 
         <ProfileSection title="Segurança & Conta">
+          <ProfileRow
+            icon="email-outline"
+            title="Alterar E-mail de Acesso"
+            subtitle={profile?.email ?? ''}
+            onPress={() => setEmailModalVisible(true)}
+            right={CHEVRON}
+            divider
+          />
           <ProfileRow
             icon="lock-reset"
             title="Alterar Senha de Acesso"
@@ -181,6 +217,10 @@ export default function AdminProfileScreen() {
       <EditPersonalInfoModal
         visible={editModalVisible}
         onDismiss={() => setEditModalVisible(false)}
+      />
+      <ChangeEmailModal
+        visible={emailModalVisible}
+        onDismiss={() => setEmailModalVisible(false)}
       />
       <ChangePasswordModal
         visible={passwordModalVisible}
