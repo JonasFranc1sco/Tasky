@@ -19,6 +19,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Chip } from 'react-native-paper';
 
@@ -26,6 +27,8 @@ type Filter = 'all' | 'turno' | 'sector';
 
 export default function MyTeamScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const numColumns = width >= 1080 ? 2 : 1;
   const { profile, company } = useAuth();
   const { activeMembers, manager } = useTeam();
   const { startChatWithMember } = useChat();
@@ -107,7 +110,11 @@ export default function MyTeamScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList
+        key={numColumns}
+        style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}
         data={filtered}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? { gap: 12 } : undefined}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 12 }}
         showsVerticalScrollIndicator={false}
@@ -115,10 +122,12 @@ export default function MyTeamScreen() {
         renderItem={({ item }) => {
           const targetMember = activeMembers.find((m) => m.id === item.id);
           return (
-            <ColleagueCard
-              colleague={item}
-              onChatPress={() => handleStartChat(targetMember)}
-            />
+            <View style={{ flex: 1, maxWidth: numColumns > 1 ? '49%' : '100%' }}>
+              <ColleagueCard
+                colleague={item}
+                onChatPress={() => handleStartChat(targetMember)}
+              />
+            </View>
           );
         }}
         ListHeaderComponent={

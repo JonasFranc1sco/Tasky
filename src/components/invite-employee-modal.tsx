@@ -1,4 +1,5 @@
 import { useAuth } from '@/hooks/auth-context';
+import { getResponsiveModalContentStyle } from '@/components/responsive-modal-style';
 import { useTeam } from '@/hooks/team-context';
 import { TeamService } from '@/services/team-service';
 import type { EmployeeMember, MemberStatus, UserRole } from '@/types/company';
@@ -11,6 +12,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Chip, Modal, Portal } from 'react-native-paper';
 
@@ -25,12 +27,14 @@ export function InviteEmployeeModal({
   editingMember,
   onDismiss,
 }: Props) {
+  const { width, height } = useWindowDimensions();
+
   return (
     <Portal>
       <Modal
         visible={visible}
         onDismiss={onDismiss}
-        contentContainerStyle={{ margin: 20 }}
+        contentContainerStyle={getResponsiveModalContentStyle(width, height, 640)}
       >
         <InviteEmployeeForm
           key={`${editingMember?.id ?? 'new'}-${visible ? 'open' : 'closed'}`}
@@ -49,10 +53,15 @@ function InviteEmployeeForm({
   editingMember?: EmployeeMember | null;
   onDismiss: () => void;
 }) {
-  const { company } = useAuth();
-  const { inviteEmployee, updateEmployee } = useTeam();
+  const { width, height } = useWindowDimensions();
+  const isNarrow = width < 480;
+  const { company, profile } = useAuth();
+  const { inviteEmployee, updateEmployee, removeMember } = useTeam();
 
   const isEditing = Boolean(editingMember);
+  const isActiveMember = isEditing && !editingMember?.isInvite;
+  // Admin editando o próprio cadastro não pode mudar a função nem o status
+  const isSelf = isActiveMember && editingMember?.uid === profile?.uid;
 
   const [name, setName] = useState(editingMember?.name ?? '');
   const [email, setEmail] = useState(editingMember?.email ?? '');
@@ -72,6 +81,31 @@ function InviteEmployeeForm({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [confirmRemove, setConfirmRemove] = useState(false);
+
+  // Remove o membro (ou exclui o convite) após um segundo toque de confirmação
+  const handleRemove = async () => {
+    if (!editingMember) return;
+
+    if (!confirmRemove) {
+      setConfirmRemove(true);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      await removeMember(editingMember.id, Boolean(editingMember.isInvite));
+      onDismiss();
+    } catch (err: unknown) {
+      setError(
+        (err as { message?: string })?.message ??
+          'Não foi possível remover o membro.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Salva um novo convite ou atualiza um funcionário existente no Firestore
   const handleSubmit = async () => {
@@ -82,7 +116,10 @@ function InviteEmployeeForm({
       return;
     }
 
-    if (!isEditing && (!email.trim() || !email.includes('@'))) {
+    if (
+      (!isEditing || editingMember?.isInvite) &&
+      (!email.trim() || !email.includes('@'))
+    ) {
       setError('Informe um e-mail corporativo válido.');
       return;
     }
@@ -93,11 +130,10 @@ function InviteEmployeeForm({
       if (isEditing && editingMember) {
         await updateEmployee(editingMember.id, Boolean(editingMember.isInvite), {
           name: name.trim(),
-          email: email.trim().toLowerCase(),
+          ...(isActiveMember ? {} : { email: email.trim().toLowerCase() }),
           jobTitle: jobTitle.trim(),
           sector: sector.trim() || 'Operação',
-          role,
-          status,
+          ...(isSelf ? {} : { role, status }),
         });
         onDismiss();
         return;
@@ -138,7 +174,10 @@ function InviteEmployeeForm({
     'min-h-11 rounded-xl border border-slate-200 bg-surface-container px-3 text-sm text-on-surface';
 
   return (
-    <View className="max-h-[88%] rounded-3xl bg-surface-lowest p-5 shadow-sm">
+    <View
+      className="max-h-[88%] rounded-3xl bg-surface-lowest p-5 shadow-sm"
+      style={{ maxHeight: Math.min(height - 64, 800), width: '100%' }}
+    >
       {/* Cabeçalho do Modal */}
       <View className="flex-row items-center justify-between">
         <Text className="text-lg font-bold text-on-surface">
@@ -198,7 +237,7 @@ function InviteEmployeeForm({
       ) : (
         <>
           <ScrollView
-            className="mt-4"
+            className="mt-4 flex-1"
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -221,18 +260,27 @@ function InviteEmployeeForm({
                   E-mail corporativo
                 </Text>
                 <TextInput
-                  className={inputClass}
+                  className={`${inputClass}${isActiveMember ? ' opacity-60' : ''}`}
                   value={email}
                   onChangeText={setEmail}
+                  // O e-mail de login de um membro ativo fica no Firebase Authentication
+                  // e não pode ser alterado por aqui
+                  editable={!isActiveMember}
                   autoCapitalize="none"
                   keyboardType="email-address"
                   placeholder="Ex.: jonas@dubaisoftwarehouse.com.br"
                   placeholderTextColor="#75777F"
                 />
+                {isActiveMember ? (
+                  <Text className="px-1 text-[10px] text-on-surface-variant">
+                    Para alterar o e-mail de acesso, o próprio colaborador deve
+                    fazer a mudança em Segurança &amp; Conta.
+                  </Text>
+                ) : null}
               </View>
 
-              <View className="flex-row gap-2.5">
-                <View className="flex-1 gap-1">
+              <View className="gap-2.5" style={{ flexDirection: isNarrow ? 'column' : 'row' }}>
+                <View className="gap-1" style={{ flex: isNarrow ? undefined : 1 }}>
                   <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
                     Cargo
                   </Text>
@@ -244,7 +292,7 @@ function InviteEmployeeForm({
                     placeholderTextColor="#75777F"
                   />
                 </View>
-                <View className="flex-1 gap-1">
+                <View className="gap-1" style={{ flex: isNarrow ? undefined : 1 }}>
                   <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
                     Setor
                   </Text>
@@ -259,55 +307,61 @@ function InviteEmployeeForm({
               </View>
 
               {/* Seleção de função e permissão (admin ou worker) */}
-              <View className="gap-1">
-                <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
-                  Função e Permissão
+              {isSelf ? (
+                <Text className="px-1 text-[11px] text-on-surface-variant">
+                  Você não pode alterar a própria função nem o próprio status.
                 </Text>
-                <View className="flex-row gap-2">
-                  <Chip
-                    mode="flat"
-                    selected={role === 'worker'}
-                    onPress={() => setRole('worker')}
-                    style={{
-                      backgroundColor:
-                        role === 'worker' ? '#0F2042' : '#ECEFF0',
-                      borderRadius: 12,
-                    }}
-                    textStyle={{
-                      color: role === 'worker' ? '#FFFFFF' : '#45464E',
-                      fontWeight: '600',
-                      fontSize: 12,
-                    }}
-                  >
-                    Funcionário (Worker)
-                  </Chip>
-                  <Chip
-                    mode="flat"
-                    selected={role === 'admin'}
-                    onPress={() => setRole('admin')}
-                    style={{
-                      backgroundColor:
-                        role === 'admin' ? '#0F2042' : '#ECEFF0',
-                      borderRadius: 12,
-                    }}
-                    textStyle={{
-                      color: role === 'admin' ? '#FFFFFF' : '#45464E',
-                      fontWeight: '600',
-                      fontSize: 12,
-                    }}
-                  >
-                    Administrador (Admin)
-                  </Chip>
+              ) : (
+                <View className="gap-1">
+                  <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
+                    Função e Permissão
+                  </Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    <Chip
+                      mode="flat"
+                      selected={role === 'worker'}
+                      onPress={() => setRole('worker')}
+                      style={{
+                        backgroundColor:
+                          role === 'worker' ? '#0F2042' : '#ECEFF0',
+                        borderRadius: 12,
+                      }}
+                      textStyle={{
+                        color: role === 'worker' ? '#FFFFFF' : '#45464E',
+                        fontWeight: '600',
+                        fontSize: 12,
+                      }}
+                    >
+                      Funcionário (Worker)
+                    </Chip>
+                    <Chip
+                      mode="flat"
+                      selected={role === 'admin'}
+                      onPress={() => setRole('admin')}
+                      style={{
+                        backgroundColor:
+                          role === 'admin' ? '#0F2042' : '#ECEFF0',
+                        borderRadius: 12,
+                      }}
+                      textStyle={{
+                        color: role === 'admin' ? '#FFFFFF' : '#45464E',
+                        fontWeight: '600',
+                        fontSize: 12,
+                      }}
+                    >
+                      Administrador (Admin)
+                    </Chip>
+                  </View>
                 </View>
-              </View>
+              )}
 
               {/* Atualização de status quando estiver editando um funcionário */}
-              {isEditing && !editingMember?.isInvite ? (
+              {isActiveMember && !isSelf ? (
                 <View className="gap-1">
                   <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
                     Status do Vínculo
                   </Text>
-                  <View className="flex-row gap-2">
+                  <View className="flex-row flex-wrap gap-2">
                     <Chip
                       mode="flat"
                       selected={status === 'active'}
@@ -375,6 +429,31 @@ function InviteEmployeeForm({
 
               {error ? (
                 <Text className="text-xs text-error">{error}</Text>
+              ) : null}
+
+              {/* Remoção do membro ou exclusão do convite (não disponível para si mesmo) */}
+              {isEditing && !isSelf ? (
+                <Pressable
+                  className="mt-1 h-11 flex-row items-center justify-center gap-2 rounded-xl active:opacity-80"
+                  style={{ borderWidth: 1, borderColor: '#BA1A1A' }}
+                  disabled={loading}
+                  onPress={handleRemove}
+                >
+                  <MaterialCommunityIcons
+                    name="account-remove-outline"
+                    size={18}
+                    color="#BA1A1A"
+                  />
+                  <Text className="text-sm font-semibold text-error">
+                    {editingMember?.isInvite
+                      ? confirmRemove
+                        ? 'Toque de novo para excluir o convite'
+                        : 'Excluir convite'
+                      : confirmRemove
+                        ? 'Toque de novo para remover da equipe'
+                        : 'Remover da equipe'}
+                  </Text>
+                </Pressable>
               ) : null}
             </View>
           </ScrollView>

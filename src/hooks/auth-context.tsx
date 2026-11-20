@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '@/config/firebase';
 import { CompanyService } from '@/services/company-service';
 import {
@@ -12,10 +13,12 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   reauthenticateWithCredential,
+  reload,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   updatePassword,
   updateProfile,
+  verifyBeforeUpdateEmail,
   type User,
 } from 'firebase/auth';
 import {
@@ -58,6 +61,12 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<EmployeeMember>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  requestEmailChange: (
+    newEmail: string,
+    currentPassword: string
+  ) => Promise<void>;
+  syncEmailAfterVerification: () => Promise<string | null>;
+  updateProfilePhoto: (photoURL: string) => Promise<void>;
   updatePersonalInfo: (input: UpdatePersonalInfoInput) => Promise<void>;
   changePassword: (
     currentPassword: string,
@@ -67,10 +76,18 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const emailChangeRequestKey = (uid: string) =>
+  `tasky:pending-email-change:${uid}`;
+
 // Formata um UserDocument do Firestore para o tipo EmployeeMember da aplicação
-function formatUserProfile(docId: string, data: UserDocument): EmployeeMember {
+function formatUserProfile(
+  docId: string,
+  data: UserDocument,
+  photoURL?: string | null
+): EmployeeMember {
   return {
     ...data,
+    photoURL: photoURL ?? null,
     id: docId,
     uid: data.uid || docId,
     name: data.name || 'Colaborador',
@@ -181,7 +198,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             const memberData = formatUserProfile(
               snap.id,
-              snap.data() as UserDocument
+              snap.data() as UserDocument,
+              firebaseUser.photoURL
             );
             setProfile(memberData);
 
@@ -234,7 +252,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Perfil corporativo não encontrado para este usuário.');
     }
 
-    const memberProfile = formatUserProfile(found.id, found.data);
+    const memberProfile = formatUserProfile(
+      found.id,
+      found.data,
+      credential.user.photoURL
+    );
     setProfile(memberProfile);
 
     if (memberProfile.companyId) {
@@ -262,6 +284,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = useCallback(async (email: string) => {
     await sendPasswordResetEmail(auth, email.trim());
   }, []);
+
+  const updateProfilePhoto = useCallback(async (photoURL: string) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || currentUser.uid !== profile?.uid) {
+      throw new Error('Sessão inválida. Faça login novamente.');
+    }
+
+    await updateProfile(currentUser, { photoURL });
+    setProfile((prev) => (prev ? { ...prev, photoURL } : prev));
+  }, [profile?.uid]);
 
   // Atualiza as informações pessoais do usuário logado (e nome da empresa se for admin)
   const updatePersonalInfo = useCallback(
@@ -331,6 +363,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [profile?.email]
   );
 
+  const requestEmailChange = useCallback(
+    async (newEmail: string, currentPassword: string) => {
+      const currentUser = auth.currentUser;
+      const currentEmail = currentUser?.email?.trim().toLowerCase();
+      const normalizedEmail = newEmail.trim().toLowerCase();
+
+      if (!currentUser || currentUser.uid !== profile?.uid || !currentEmail) {
+        throw new Error('Sessão inválida. Faça login novamente.');
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        throw new Error('Informe um endereço de e-mail válido.');
+      }
+
+      if (normalizedEmail === currentEmail) {
+        throw new Error('O novo e-mail precisa ser diferente do atual.');
+      }
+
+      if (!currentPassword) {
+        throw new Error('Digite sua senha atual para confirmar sua identidade.');
+      }
+
+      const credential = EmailAuthProvider.credential(
+        currentEmail,
+        currentPassword
+      );
+      await reauthenticateWithCredential(currentUser, credential);
+      await AsyncStorage.setItem(
+        emailChangeRequestKey(currentUser.uid),
+        normalizedEmail
+      );
+      await verifyBeforeUpdateEmail(currentUser, normalizedEmail);
+    },
+    [profile?.uid]
+  );
+
+  const syncEmailAfterVerification = useCallback(async () => {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser || currentUser.uid !== profile?.uid || !profile.id) {
+      throw new Error('Sessão inválida. Faça login novamente.');
+    }
+
+    const pendingEmail = await AsyncStorage.getItem(
+      emailChangeRequestKey(currentUser.uid)
+    );
+    if (!pendingEmail) {
+      throw new Error(
+        'Não encontramos uma solicitação pendente neste dispositivo. Solicite a mudança de e-mail novamente.'
+      );
+    }
+
+    await reload(currentUser);
+    const verifiedEmail = currentUser.email?.trim().toLowerCase();
+    if (!verifiedEmail) {
+      throw new Error('Não foi possível confirmar o e-mail da conta.');
+    }
+
+    if (verifiedEmail !== pendingEmail.trim().toLowerCase()) {
+      throw new Error(
+        'A confirmação ainda não foi detectada. Abra o link recebido neste dispositivo e tente novamente.'
+      );
+    }
+
+    if (verifiedEmail !== profile.email.trim().toLowerCase()) {
+      await currentUser.getIdToken(true);
+      const updatedAt = Timestamp.now();
+      await updateDoc(doc(db, 'users', profile.id), {
+        email: verifiedEmail,
+        updatedAt,
+      });
+      setProfile((prev) =>
+        prev?.uid === currentUser.uid
+          ? { ...prev, email: verifiedEmail, updatedAt }
+          : prev
+      );
+    }
+
+    await AsyncStorage.removeItem(emailChangeRequestKey(currentUser.uid));
+    return verifiedEmail;
+  }, [profile]);
+
   const value = useMemo<AuthContextValue>(() => {
     const role = profile?.role ?? null;
     return {
@@ -344,6 +458,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signOut,
       resetPassword,
+      requestEmailChange,
+      syncEmailAfterVerification,
+      updateProfilePhoto,
       updatePersonalInfo,
       changePassword,
     };
@@ -353,6 +470,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     company,
     loading,
     resetPassword,
+    requestEmailChange,
+    syncEmailAfterVerification,
+    updateProfilePhoto,
     updatePersonalInfo,
     changePassword,
   ]);

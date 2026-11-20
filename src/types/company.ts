@@ -52,6 +52,8 @@ export type UserDocument = {
   role: UserRole;
   status: MemberStatus;
   employeeCode: string;
+  // Convite individual usado no ingresso (validado nas regras do Firestore)
+  inviteId?: string | null;
   pendingTasks: number;
   completedTasks: number;
   createdAt: Timestamp;
@@ -61,6 +63,7 @@ export type UserDocument = {
 // Modelo unificado de membro da equipe usado nas telas e listagens
 export type EmployeeMember = UserDocument & {
   initials: string;
+  photoURL?: string | null;
   isInvite?: boolean;
   inviteCode?: string;
   statusMessage?: string;
