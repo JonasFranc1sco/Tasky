@@ -51,9 +51,11 @@ export default function GestorHomeScreen() {
   const { profile, company } = useAuth();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [employeeFilter, setEmployeeFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [tasks, setTasks] = useState<ManagerTask[]>(INITIAL_TASKS);
   const [delegateVisible, setDelegateVisible] = useState(false);
+  const employees = [...new Set(tasks.map((task) => task.assignee))];
 
   const companyDisplayName =
     company?.companyName || profile?.companyName || 'Empresa';
@@ -72,7 +74,16 @@ export default function GestorHomeScreen() {
     priorityFilter === 'all' ||
     task.category === priorityFilter;
 
-  return matchesStatus && matchesSearch && matchesPriority;
+  const matchesEmployee =
+    employeeFilter === 'all' ||
+    task.assignee === employeeFilter;
+
+  return (
+    matchesStatus &&
+    matchesSearch &&
+    matchesPriority &&
+    matchesEmployee
+  );
 });
   const handleDelegate = (payload: DelegationPayload) => {
     setTasks((prev) => [
@@ -167,7 +178,35 @@ export default function GestorHomeScreen() {
             borderRadius: 12,
             }}
             inputStyle={{ fontSize: 14 }}
-/><View className="mt-3 flex-row flex-wrap gap-2">
+/>
+<Text className="mt-4 text-sm font-semibold text-on-surface">
+  Filtrar por funcionário
+</Text>
+
+<ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  className="mt-2"
+  contentContainerStyle={{ gap: 8 }}
+>
+  <Chip
+    selected={employeeFilter === 'all'}
+    onPress={() => setEmployeeFilter('all')}
+  >
+    Todos
+  </Chip>
+
+  {employees.map((employee) => (
+    <Chip
+      key={employee}
+      selected={employeeFilter === employee}
+      onPress={() => setEmployeeFilter(employee)}
+    >
+      {employee}
+    </Chip>
+  ))}
+</ScrollView>
+<View className="mt-3 flex-row flex-wrap gap-2">
   {[
     { label: 'Todas prioridades', value: 'all' },
     { label: 'Alta', value: 'Alta Prioridade' },
