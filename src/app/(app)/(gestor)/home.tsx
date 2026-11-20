@@ -119,6 +119,14 @@ export default function GestorHomeScreen() {
   );
 });
 const totalFilteredTasks = filteredTasks.length;
+const activeFiltersCount = [
+  searchQuery.trim() !== '',
+  priorityFilter !== 'all',
+  employeeFilter !== 'all',
+  sectorFilter !== 'all',
+  dateSort !== 'default',
+  filter !== 'all',
+].filter(Boolean).length;
   const handleDelegate = async (payload: DelegationPayload) => {
   await addTask({
     name: payload.title,
@@ -191,6 +199,28 @@ const totalFilteredTasks = filteredTasks.length;
         icon="filter-remove"
         onPress={handleClearFilters}
       >
+        {activeFiltersCount > 0 && (
+  <View
+    style={{
+      marginTop: 12,
+      padding: 10,
+      backgroundColor: '#E8EEF8',
+      borderRadius: 12,
+    }}
+  >
+    <Text
+      style={{
+        color: '#0F2042',
+        fontSize: 13,
+        fontWeight: '600',
+      }}
+    >
+      {activeFiltersCount === 1
+        ? '1 filtro ativo'
+        : `${activeFiltersCount} filtros ativos`}
+    </Text>
+  </View>
+)}
         Limpar filtros
       </Button>
     </View>
