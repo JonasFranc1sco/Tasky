@@ -6,8 +6,9 @@ import { ScreenHeader } from '@/components/screen-header';
 import type { Task } from '@/constants/tasks';
 import { useAuth } from '@/hooks/auth-context';
 import { useTasks } from '@/hooks/tasks-context';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ComponentProps } from 'react';
 import { Alert, FlatList, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import {
   Button,
@@ -51,18 +52,17 @@ export default function GestorHomeScreen() {
   const [deletingTask, setDeletingTask] = useState(false);
 
   const employees = [...new Set(tasks.map((task) => task.assignee))];
+  const sectors = [
+    ...new Set(
+      tasks
+        .map((task) => task.sector)
+        .filter((sector): sector is string => Boolean(sector))
+    ),
+  ];
   const companyDisplayName =
     company?.companyName || profile?.companyName || 'Empresa';
 
   const managerDisplayName = profile?.name || 'Gestor';
-
-  const sectors = [
-  ...new Set(
-    tasks
-      .map((task) => task.sector)
-      .filter((sector): sector is string => Boolean(sector))
-  ),
-];
 
   const filteredTasks = tasks.filter((task) => {
     const matchesStatus =
@@ -71,9 +71,13 @@ export default function GestorHomeScreen() {
         ? !!task.archivedAt
         : task.status === filter);
 
-    const matchesSearch = task.title
-      .toLowerCase()
-      .includes(searchQuery.trim().toLowerCase());
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+    const matchesSearch = [
+      task.title,
+      task.description,
+      task.assignee,
+      task.sector ?? '',
+    ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
 
     const matchesPriority =
       priorityFilter === 'all' || task.category === priorityFilter;
@@ -238,188 +242,133 @@ export default function GestorHomeScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
             style={{
-            marginTop: 12,
-            backgroundColor: '#ECEFF0',
-            borderRadius: 12,
+              marginTop: 12,
+              backgroundColor: '#ECEFF0',
+              borderRadius: 12,
             }}
             inputStyle={{ fontSize: 14 }}
-/>
-<Text className="mt-4 text-sm font-semibold text-on-surface">
-  Filtrar por funcionário
-</Text>
+          />
 
-<ScrollView
-  horizontal
-  showsHorizontalScrollIndicator={false}
-  className="mt-2"
-  contentContainerStyle={{ gap: 8 }}
->
-  <Text className="mt-4 text-sm font-semibold text-on-surface">
-  Filtrar por setor
-</Text>
-
-<ScrollView
-  horizontal
-  showsHorizontalScrollIndicator={false}
-  className="mt-2"
-  contentContainerStyle={{ gap: 8 }}
->
-  <Chip
-    selected={sectorFilter === 'all'}
-    onPress={() => setSectorFilter('all')}
-  >
-    Todos os setores
-  </Chip>
-
-  {sectors.map((sector) => (
-    <Chip
-      key={sector}
-      selected={sectorFilter === sector}
-      onPress={() => setSectorFilter(sector)}
-    >
-      {sector}
-    </Chip>
-  ))}
-</ScrollView>
-  <Chip
-    selected={employeeFilter === 'all'}
-    onPress={() => setEmployeeFilter('all')}
-  >
-    Todos
-  </Chip>
-
-  {employees.map((employee) => (
-    <Chip
-      key={employee}
-      selected={employeeFilter === employee}
-      onPress={() => setEmployeeFilter(employee)}
-    >
-      {employee}
-    </Chip>
-  ))}
-</ScrollView>
-<View className="mt-3 flex-row flex-wrap gap-2">
-  {[
-    { label: 'Todas prioridades', value: 'all' },
-    { label: 'Alta', value: 'Alta Prioridade' },
-    { label: 'Rotina', value: 'Rotina' },
-    { label: 'Baixa', value: 'Baixa' },
-  ].map((item) => (
-    <Chip
-      key={item.value}
-      selected={priorityFilter === item.value}
-      onPress={() => setPriorityFilter(item.value)}
-      style={{
-        backgroundColor:
-          priorityFilter === item.value ? '#0F2042' : '#ECEFF0',
-        borderRadius: 12,
-      }}
-      textStyle={{
-        color:
-          priorityFilter === item.value ? '#FFFFFF' : '#45464E',
-        fontSize: 12,
-      }}
-    >
-      {item.label}
-    </Chip>
-  ))}
-</View>
-            {/* Chips de Filtro com Paper */}
+          <Text className="mt-4 text-sm font-semibold text-on-surface">
+            Status
+          </Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              className="mt-3 mb-1"
+              className="mt-2"
               contentContainerStyle={{ gap: 8 }}
             >
-              <Chip
-                mode="flat"
-                selected={filter === 'all'}
+              <TaskFilterChip
+                label={`Todas (${metrics.total})`}
                 icon="format-list-bulleted"
+                selected={filter === 'all'}
                 onPress={() => setFilter('all')}
-                style={{
-                  backgroundColor: filter === 'all' ? '#0F2042' : '#ECEFF0',
-                  borderRadius: 12,
-                }}
-                textStyle={{
-                  color: filter === 'all' ? '#FFFFFF' : '#45464E',
-                  fontWeight: '600',
-                  fontSize: 12,
-                }}
-              >
-                Todas
-              </Chip>
-
-              <Chip
-                mode="flat"
+              />
+              <TaskFilterChip
+                label={`Pendentes (${metrics.pending})`}
+                icon="clock-outline"
                 selected={filter === 'pending'}
-                icon={() => (
-                  <View
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 3,
-                      backgroundColor: filter === 'pending' ? '#FFFFFF' : '#45464E',
-                    }}
-                  />
-                )}
                 onPress={() => setFilter('pending')}
-                style={{
-                  backgroundColor: filter === 'pending' ? '#0F2042' : '#ECEFF0',
-                  borderRadius: 12,
-                }}
-                textStyle={{
-                  color: filter === 'pending' ? '#FFFFFF' : '#45464E',
-                  fontWeight: '600',
-                  fontSize: 12,
-                }}
-              >
-                Pendentes ({metrics.pending})
-              </Chip>
-
-              <Chip
-                mode="flat"
+              />
+              <TaskFilterChip
+                label={`Concluídas (${metrics.completed})`}
+                icon="check-circle-outline"
                 selected={filter === 'completed'}
-                icon={() => (
-                  <View
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 3,
-                      backgroundColor: filter === 'completed' ? '#FFFFFF' : '#45464E',
-                    }}
-                  />
-                )}
                 onPress={() => setFilter('completed')}
-                style={{
-                  backgroundColor: filter === 'completed' ? '#0F2042' : '#ECEFF0',
-                  borderRadius: 12,
-                }}
-                textStyle={{
-                  color: filter === 'completed' ? '#FFFFFF' : '#45464E',
-                  fontWeight: '600',
-                  fontSize: 12,
-                }}
-              >
-                Concluídas ({metrics.completed})
-              </Chip>
-
-              <Chip
-                mode="flat"
-                selected={filter === 'archived'}
+              />
+              <TaskFilterChip
+                label={`Arquivadas (${metrics.archived})`}
                 icon="archive-outline"
+                selected={filter === 'archived'}
                 onPress={() => setFilter('archived')}
-                style={{
-                  backgroundColor: filter === 'archived' ? '#0F2042' : '#ECEFF0',
-                  borderRadius: 12,
-                }}
-                textStyle={{
-                  color: filter === 'archived' ? '#FFFFFF' : '#45464E',
-                  fontWeight: '600',
-                  fontSize: 12,
-                }}
-              >
-                Arquivadas ({metrics.archived})
-              </Chip>
+              />
+            </ScrollView>
+
+            <Text className="mt-4 text-sm font-semibold text-on-surface">
+              Prioridade
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mt-2"
+              contentContainerStyle={{ gap: 8 }}
+            >
+              <TaskFilterChip
+                label="Todas"
+                icon="filter-variant"
+                selected={priorityFilter === 'all'}
+                onPress={() => setPriorityFilter('all')}
+              />
+              <TaskFilterChip
+                label="Alta"
+                icon="fire"
+                selected={priorityFilter === 'Alta Prioridade'}
+                onPress={() => setPriorityFilter('Alta Prioridade')}
+              />
+              <TaskFilterChip
+                label="Rotina"
+                icon="calendar-clock"
+                selected={priorityFilter === 'Rotina'}
+                onPress={() => setPriorityFilter('Rotina')}
+              />
+              <TaskFilterChip
+                label="Baixa"
+                icon="arrow-down-circle-outline"
+                selected={priorityFilter === 'Baixa'}
+                onPress={() => setPriorityFilter('Baixa')}
+              />
+            </ScrollView>
+
+            <Text className="mt-4 text-sm font-semibold text-on-surface">
+              Funcionário
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mt-2"
+              contentContainerStyle={{ gap: 8 }}
+            >
+              <TaskFilterChip
+                label="Todos"
+                icon="account-group-outline"
+                selected={employeeFilter === 'all'}
+                onPress={() => setEmployeeFilter('all')}
+              />
+              {employees.map((employee) => (
+                <TaskFilterChip
+                  key={employee}
+                  label={employee}
+                  icon="account-outline"
+                  selected={employeeFilter === employee}
+                  onPress={() => setEmployeeFilter(employee)}
+                />
+              ))}
+            </ScrollView>
+
+            <Text className="mt-4 text-sm font-semibold text-on-surface">
+              Setor
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mt-2 mb-1"
+              contentContainerStyle={{ gap: 8 }}
+            >
+              <TaskFilterChip
+                label="Todos os setores"
+                icon="domain"
+                selected={sectorFilter === 'all'}
+                onPress={() => setSectorFilter('all')}
+              />
+              {sectors.map((sector) => (
+                <TaskFilterChip
+                  key={sector}
+                  label={sector}
+                  icon="tag-outline"
+                  selected={sectorFilter === sector}
+                  onPress={() => setSectorFilter(sector)}
+                />
+              ))}
             </ScrollView>
           </>
         }
@@ -516,6 +465,44 @@ export default function GestorHomeScreen() {
   );
 }
 
+type TaskFilterChipProps = {
+  label: string;
+  icon: ComponentProps<typeof MaterialCommunityIcons>['name'];
+  selected: boolean;
+  onPress: () => void;
+};
+
+function TaskFilterChip({
+  label,
+  icon,
+  selected,
+  onPress,
+}: TaskFilterChipProps) {
+  const iconColor = selected ? '#FFFFFF' : '#45464E';
+
+  return (
+    <Chip
+      mode="flat"
+      selected={selected}
+      icon={() => (
+        <MaterialCommunityIcons name={icon} size={16} color={iconColor} />
+      )}
+      onPress={onPress}
+      style={{
+        backgroundColor: selected ? '#0F2042' : '#ECEFF0',
+        borderRadius: 12,
+      }}
+      textStyle={{
+        color: iconColor,
+        fontWeight: '600',
+        fontSize: 12,
+      }}
+    >
+      {label}
+    </Chip>
+  );
+}
+
 function toManagerTask(task: Task): ManagerTask {
   return {
     id: task.id,
@@ -523,6 +510,7 @@ function toManagerTask(task: Task): ManagerTask {
     description: task.description,
     assignee: task.assignee.name,
     time: task.dueDate,
+    sector: task.sector,
     status: task.completedAt ? 'completed' : 'pending',
     category:
       task.category ??
