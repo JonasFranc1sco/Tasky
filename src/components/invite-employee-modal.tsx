@@ -102,7 +102,7 @@ function InviteEmployeeForm({
       if (isEditing && editingMember) {
         await updateEmployee(editingMember.id, Boolean(editingMember.isInvite), {
           name: name.trim(),
-          email: email.trim().toLowerCase(),
+          ...(isActiveMember ? {} : { email: email.trim().toLowerCase() }),
           jobTitle: jobTitle.trim(),
           sector: sector.trim() || 'Operação',
           ...(isSelf ? {} : { role, status }),
@@ -235,6 +235,10 @@ function InviteEmployeeForm({
                   className={inputClass}
                   value={email}
                   onChangeText={setEmail}
+                  // O e-mail de login de um membro ativo fica no Firebase Authentication
+                  // e não pode ser alterado por aqui
+                  editable={!isActiveMember}
+                  style={isActiveMember ? { opacity: 0.6 } : undefined}
                   autoCapitalize="none"
                   keyboardType="email-address"
                   placeholder="Ex.: jonas@dubaisoftwarehouse.com.br"
