@@ -153,6 +153,49 @@ const totalFilteredTasks = filteredTasks.length;
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 12 }}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+  !tasksLoading ? (
+    <View
+      style={{
+        alignItems: 'center',
+        paddingVertical: 40,
+        paddingHorizontal: 20,
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 18,
+          fontWeight: '700',
+          color: '#0F2042',
+          marginBottom: 8,
+          textAlign: 'center',
+        }}
+      >
+        Nenhuma tarefa encontrada
+      </Text>
+
+      <Text
+        style={{
+          fontSize: 14,
+          color: '#45464E',
+          textAlign: 'center',
+          marginBottom: 16,
+        }}
+      >
+        Tente alterar os filtros ou limpar a pesquisa
+        para visualizar outras tarefas.
+      </Text>
+
+      <Button
+        mode="contained"
+        icon="filter-remove"
+        onPress={handleClearFilters}
+      >
+        Limpar filtros
+      </Button>
+    </View>
+  ) : null
+}
         ListHeaderComponent={
           <>
           <Text
