@@ -85,9 +85,10 @@ O arquivo local `firestore.rules` contém as regras ativas copiadas do projeto
 `tasky-60a18` e as permissões para tasks e mensagens. Essas regras já estão
 publicadas no Firestore do projeto.
 
-Gestores ativos podem criar tarefas, consultar as tarefas da empresa, validar e
-arquivar tarefas concluídas e reabri-las. Colaboradores ativos podem consultar e
-concluir apenas tarefas atribuídas ao próprio UID; por isso, a consulta do app
-filtra por `assigneeUid`. Mensagens são legíveis pelo gestor e pelo responsável
-da tarefa, mas apenas gestores podem criá-las. Exclusão de tarefas e edição ou
-exclusão de mensagens ficam bloqueadas.
+Gestores ativos podem criar, consultar, validar, arquivar, reabrir e excluir
+tarefas da empresa. Ao excluir uma tarefa, o app remove primeiro suas mensagens
+em lotes e depois exclui o documento da tarefa. Colaboradores ativos podem
+consultar e concluir apenas tarefas atribuídas ao próprio UID; por isso, a
+consulta do app filtra por `assigneeUid`. Mensagens são legíveis pelo gestor e
+pelo responsável da tarefa; apenas gestores podem criá-las ou excluí-las, e a
+edição de mensagens permanece bloqueada.

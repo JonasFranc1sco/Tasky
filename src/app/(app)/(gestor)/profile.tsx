@@ -107,6 +107,13 @@ export default function AdminProfileScreen() {
                 subtitle={taskMetrics.completedPercentage}
               />
             </View>
+            <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+              <ManagerStatCard
+                title="Arquivadas"
+                value={taskMetrics.archived}
+                subtitle="Tarefas validadas"
+              />
+            </View>
           </View>
         </View>
 
@@ -122,7 +129,7 @@ export default function AdminProfileScreen() {
           <ProfileRow
             icon="clipboard-text-outline"
             title="Tarefas da Equipe"
-            subtitle={`${taskMetrics.total} tarefas cadastradas`}
+            subtitle={`${taskMetrics.total} tarefas • ${taskMetrics.archived} arquivadas`}
             onPress={() => router.push('/(app)/(gestor)/home')}
             right={CHEVRON}
           />

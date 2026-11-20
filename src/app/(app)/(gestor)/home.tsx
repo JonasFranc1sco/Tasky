@@ -9,7 +9,15 @@ import { useTasks } from '@/hooks/tasks-context';
 import { Stack, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, FlatList, ScrollView, Text, View, useWindowDimensions } from 'react-native';
-import { Button, Chip, FAB, Searchbar, Snackbar } from 'react-native-paper';
+import {
+  Button,
+  Chip,
+  Dialog,
+  FAB,
+  Portal,
+  Searchbar,
+  Snackbar,
+} from 'react-native-paper';
 
 export default function GestorHomeScreen() {
   const router = useRouter();
@@ -17,7 +25,9 @@ export default function GestorHomeScreen() {
   const { width } = useWindowDimensions();
   const numColumns = width >= 1080 ? 2 : 1;
   const isWideMetrics = width >= 600;
-  const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [filter, setFilter] = useState<
+    'all' | 'pending' | 'completed' | 'archived'
+  >('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [employeeFilter, setEmployeeFilter] = useState('all');
   const [sectorFilter, setSectorFilter] = useState('all');
@@ -29,10 +39,16 @@ export default function GestorHomeScreen() {
     error: tasksError,
     addTask,
     updateTaskStatus,
+    deleteTask: removeTask,
   } = useTasks();
   const tasks = useMemo(() => allTasks.map(toManagerTask), [allTasks]);
   const [delegateVisible, setDelegateVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+  const [pendingDeleteTask, setPendingDeleteTask] = useState<ManagerTask | null>(
+    null
+  );
+  const [deleteTaskError, setDeleteTaskError] = useState<string | null>(null);
+  const [deletingTask, setDeletingTask] = useState(false);
 
   const employees = [...new Set(tasks.map((task) => task.assignee))];
   const companyDisplayName =
@@ -49,7 +65,11 @@ export default function GestorHomeScreen() {
 ];
 
   const filteredTasks = tasks.filter((task) => {
-    const matchesStatus = filter === 'all' || task.status === filter;
+    const matchesStatus =
+      filter === 'all' ||
+      (filter === 'archived'
+        ? !!task.archivedAt
+        : task.status === filter);
 
     const matchesSearch = task.title
       .toLowerCase()
@@ -97,6 +117,29 @@ export default function GestorHomeScreen() {
 
     setDelegateVisible(false);
     setSnackbarMessage('Tarefa delegada e sincronizada.');
+  };
+
+  const handleDeleteTask = (task: ManagerTask) => {
+    setDeleteTaskError(null);
+    setPendingDeleteTask(task);
+  };
+
+  const handleConfirmDeleteTask = async () => {
+    if (!pendingDeleteTask) return;
+
+    setDeletingTask(true);
+    setDeleteTaskError(null);
+    try {
+      await removeTask(pendingDeleteTask.id);
+      setPendingDeleteTask(null);
+      setSnackbarMessage('Tarefa excluída.');
+    } catch (failure) {
+      setDeleteTaskError(
+        failure instanceof Error ? failure.message : 'Tente novamente.'
+      );
+    } finally {
+      setDeletingTask(false);
+    }
   };
 
   return (
@@ -154,6 +197,13 @@ export default function GestorHomeScreen() {
                   title="Concluídas"
                   value={metrics.completed}
                   subtitle={metrics.completedPercentage}
+                />
+              </View>
+              <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+                <ManagerStatCard
+                  title="Arquivadas"
+                  value={metrics.archived}
+                  subtitle="Tarefas validadas"
                 />
               </View>
             </View>
@@ -355,6 +405,24 @@ export default function GestorHomeScreen() {
               >
                 Concluídas ({metrics.completed})
               </Chip>
+
+              <Chip
+                mode="flat"
+                selected={filter === 'archived'}
+                icon="archive-outline"
+                onPress={() => setFilter('archived')}
+                style={{
+                  backgroundColor: filter === 'archived' ? '#0F2042' : '#ECEFF0',
+                  borderRadius: 12,
+                }}
+                textStyle={{
+                  color: filter === 'archived' ? '#FFFFFF' : '#45464E',
+                  fontWeight: '600',
+                  fontSize: 12,
+                }}
+              >
+                Arquivadas ({metrics.archived})
+              </Chip>
             </ScrollView>
           </>
         }
@@ -378,6 +446,7 @@ export default function GestorHomeScreen() {
                   );
                 });
               }}
+              onDelete={() => handleDeleteTask(item)}
             />
           </View>
         )}
@@ -403,6 +472,42 @@ export default function GestorHomeScreen() {
         onDismiss={() => setDelegateVisible(false)}
         onConfirm={handleDelegate}
       />
+      <Portal>
+        <Dialog
+          visible={!!pendingDeleteTask}
+          onDismiss={() => {
+            if (!deletingTask) setPendingDeleteTask(null);
+          }}
+        >
+          <Dialog.Title>Excluir tarefa?</Dialog.Title>
+          <Dialog.Content>
+            <Text className="text-sm text-on-surface-variant">
+              {pendingDeleteTask
+                ? `"${pendingDeleteTask.title}" será excluída permanentemente.`
+                : ''}
+            </Text>
+            {deleteTaskError ? (
+              <Text className="mt-3 text-sm text-error">{deleteTaskError}</Text>
+            ) : null}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              onPress={() => setPendingDeleteTask(null)}
+              disabled={deletingTask}
+            >
+              Cancelar
+            </Button>
+            <Button
+              textColor="#BA1A1A"
+              onPress={() => void handleConfirmDeleteTask()}
+              disabled={deletingTask}
+              loading={deletingTask}
+            >
+              Excluir
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
       <Snackbar
         visible={!!snackbarMessage}
         onDismiss={() => setSnackbarMessage(null)}
