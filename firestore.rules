@@ -92,12 +92,20 @@ service cloud.firestore {
         (userId == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['name', 'jobTitle', 'sector', 'companyName', 'updatedAt']))
-        // Admin da empresa: edita membros, sem movê-los para outra empresa
+        // Admin da empresa: edita membros, sem movê-los para outra empresa.
+        // O admin não altera a própria função nem o próprio status,
+        // para a empresa não ficar sem administrador.
         || (isAdminOf(resource.data.companyId)
-          && request.resource.data.companyId == resource.data.companyId)
+          && request.resource.data.companyId == resource.data.companyId
+          && (userId != request.auth.uid
+            || (request.resource.data.role == resource.data.role
+              && request.resource.data.get('status', 'active')
+                == resource.data.get('status', 'active'))))
       );
 
-      allow delete: if isAdminOf(resource.data.companyId);
+      // Admin remove membros da empresa, mas não a si mesmo
+      allow delete: if isAdminOf(resource.data.companyId)
+        && userId != request.auth.uid;
     }
 
     // ---------- companies/{companyId} ----------
