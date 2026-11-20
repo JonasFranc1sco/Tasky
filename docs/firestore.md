@@ -63,10 +63,28 @@ users/{uid}.companyId        ──►  companies/{id}
 companies/{id}.ownerId       ──►  users/{uid}
 invites/{id}.companyId       ──►  companies/{id}
 conversations/{id}.companyId ──►  companies/{id}
+companies/{id}/tasks/{taskId}.assigneeUid ──► users/{uid}
 ```
+
+## `companies/{companyId}/tasks/{taskId}`
+
+O Firestore passa a exibir a subcoleção `tasks` no documento da empresa quando a primeira delegação é salva pelo gestor.
+
+O caminho identifica a empresa. Cada tarefa guarda quem delegou (`createdByUid`), quem recebeu (`assigneeUid`, `assigneeName`), título (`name`), descrição, setor, prazo em texto, prioridade (`alta`, `media`, `baixa`) e categoria. Os horários de criação, atualização, conclusão e arquivamento são gravados pelo servidor. O gestor consulta as tarefas da empresa. O colaborador filtra a mesma subcoleção pelo próprio `assigneeUid`.
+
+| Ação | Quem executa no app | Campos atualizados |
+| --- | --- | --- |
+| Delegar | Gestor da empresa | `status: pending` |
+| Concluir | Responsável | `status: completed` e `completedAt` |
+| Validar e arquivar | Gestor da empresa | `archivedAt`, com `status: completed` |
+| Reabrir | Gestor da empresa | `status: pending`, limpa `completedAt` e `archivedAt` quando preenchido |
+
+Quando uma tarefa pendente tem `updatedAt` posterior a `createdAt`, o app mostra a data de reabertura.
+
+### Observações
+
+A subcoleção `companies/{companyId}/tasks/{taskId}/messages/{messageId}` guarda autor, cargo, conteúdo e horário. Gestores da empresa podem escrever. Gestores e o responsável podem ler.
 
 ## Regras de segurança
 
-As regras ficam no Console (Firestore → Regras). Atualmente exigem apenas usuário
-autenticado (`request.auth != null`). Regras por empresa e por perfil ainda serão
-definidas.
+O arquivo [firestore.rules](../firestore.rules) contém as regras completas para publicar em Firestore → Regras, incluindo usuários, empresas, convites, chat e tarefas. As regras de tarefas consultam `users/{uid}`, onde o ID do documento deve corresponder ao UID do Authentication.

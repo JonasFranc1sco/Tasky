@@ -1,28 +1,38 @@
+import { taskErrorMessage } from '@/services/task-service';
+import { formatTaskDate, type TaskNote } from '@/types/task';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { Button } from 'react-native-paper';
 
-export type TaskNote = {
-  id: string;
-  author: string;
-  role: string;
-  timestamp: string;
-  content: string;
-};
-
 type Props = {
   notes: TaskNote[];
-  onSaveNote?: (content: string) => void;
+  loading: boolean;
+  error: string | null;
+  onSaveNote?: (content: string) => Promise<void>;
 };
 
-export function TaskNotesCard({ notes, onSaveNote }: Props) {
+export function TaskNotesCard({ notes, loading, error, onSaveNote }: Props) {
   const [inputText, setInputText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const savingRef = useRef(false);
 
-  const handleSave = () => {
-    if (!inputText.trim()) return;
-    onSaveNote?.(inputText.trim());
-    setInputText('');
+  const handleSave = async () => {
+    const content = inputText.trim();
+    if (!content || !onSaveNote || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await onSaveNote(content);
+      setInputText('');
+    } catch (cause) {
+      setSaveError(taskErrorMessage(cause, 'Não foi possível salvar a nota.'));
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
   return (
@@ -45,6 +55,12 @@ export function TaskNotesCard({ notes, onSaveNote }: Props) {
         </Text>
       </View>
 
+      {error || loading || notes.length === 0 ? (
+        <Text className={error ? 'mt-3 text-xs text-error' : 'mt-3 text-xs text-on-surface-variant'}>
+          {error ?? (loading ? 'Carregando observações…' : 'Nenhuma observação.')}
+        </Text>
+      ) : null}
+
       {/* Lista de Notas Cadastradas */}
       <View className="mt-3.5 gap-2.5">
         {notes.map((note) => (
@@ -64,7 +80,7 @@ export function TaskNotesCard({ notes, onSaveNote }: Props) {
                 </Text>
               </View>
               <Text className="text-xs font-medium text-[#75777F]">
-                {note.timestamp}
+                {formatTaskDate(note.createdAt)}
               </Text>
             </View>
 
@@ -76,51 +92,52 @@ export function TaskNotesCard({ notes, onSaveNote }: Props) {
         ))}
       </View>
 
-      {/* Rótulo de Criação de Nova Nota */}
-      <Text className="mt-4 text-xs font-semibold text-on-surface-variant">
-        Adicionar nova nota ou apontamento
-      </Text>
-
-      {/* Campo de Entrada da Observação */}
-      <View className="mt-2 rounded-2xl bg-surface-low p-3">
-        <TextInput
-          className="min-h-[72px] text-xs text-on-surface"
-          placeholder="Digite uma observação para o colaborador..."
-          placeholderTextColor="#75777F"
-          multiline
-          textAlignVertical="top"
-          value={inputText}
-          onChangeText={setInputText}
-        />
-      </View>
-
-      {/* Rodapé de Ações: Indicador de Visibilidade e Botão Salvar */}
-      <View className="mt-3.5 flex-row items-center justify-between">
-        <View className="flex-row items-center gap-1.5">
-          <MaterialCommunityIcons
-            name="eye-outline"
-            size={16}
-            color="#75777F"
-          />
-          <Text className="text-xs font-medium text-[#75777F]">
-            Visível para a equipe
+      {onSaveNote ? (
+        <>
+          <Text className="mt-4 text-xs font-semibold text-on-surface-variant">
+            Adicionar nova nota ou apontamento
           </Text>
-        </View>
 
-        <Button
-          mode="contained"
-          icon="arrow-right"
-          buttonColor="#0F2042"
-          textColor="#FFFFFF"
-          contentStyle={{ flexDirection: 'row-reverse', height: 40 }}
-          style={{ borderRadius: 12 }}
-          labelStyle={{ fontWeight: '600', fontSize: 13 }}
-          onPress={handleSave}
-          disabled={!inputText.trim()}
-        >
-          Salvar Nota
-        </Button>
-      </View>
+          <View className="mt-2 rounded-2xl bg-surface-low p-3">
+            <TextInput
+              className="min-h-[72px] text-xs text-on-surface"
+              placeholder="Digite uma observação para o colaborador..."
+              placeholderTextColor="#75777F"
+              multiline
+              textAlignVertical="top"
+              value={inputText}
+              onChangeText={setInputText}
+              maxLength={5000}
+              editable={!saving}
+            />
+          </View>
+
+          <View className="mt-3.5 flex-row items-center justify-between">
+            <View className="flex-row items-center gap-1.5">
+              <MaterialCommunityIcons name="eye-outline" size={16} color="#75777F" />
+              <Text className="text-xs font-medium text-[#75777F]">
+                Visível para o responsável
+              </Text>
+            </View>
+
+            <Button
+              mode="contained"
+              icon="arrow-right"
+              buttonColor="#0F2042"
+              textColor="#FFFFFF"
+              contentStyle={{ flexDirection: 'row-reverse', height: 40 }}
+              style={{ borderRadius: 12 }}
+              labelStyle={{ fontWeight: '600', fontSize: 13 }}
+              onPress={handleSave}
+              loading={saving}
+              disabled={!inputText.trim() || saving}
+            >
+              Salvar Nota
+            </Button>
+          </View>
+          {saveError ? <Text className="mt-2 text-xs text-error">{saveError}</Text> : null}
+        </>
+      ) : null}
     </View>
   );
 }

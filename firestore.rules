@@ -1,0 +1,268 @@
+rules_version = '2';
+
+// Regras de segurança do Cloud Firestore — Tasky
+// Documentação: docs/firestore.md
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myEmail() {
+      return request.auth.token.email;
+    }
+
+    function userDoc(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function me() {
+      return get(userDoc(request.auth.uid)).data;
+    }
+
+    function isMemberOf(companyId) {
+      return signedIn()
+        && exists(userDoc(request.auth.uid))
+        && me().companyId == companyId;
+    }
+
+    function isAdminOf(companyId) {
+      return isMemberOf(companyId) && me().role == 'admin';
+    }
+
+    function companyExists(companyId) {
+      return exists(/databases/$(database)/documents/companies/$(companyId));
+    }
+
+    function isActiveMemberOf(companyId) {
+      return isMemberOf(companyId) && me().get('status', 'active') == 'active';
+    }
+
+    function adminInviteMatches(inviteId) {
+      let invitePath = /databases/$(database)/documents/invites/$(inviteId);
+      return exists(invitePath)
+        && get(invitePath).data.companyId == request.resource.data.companyId
+        && get(invitePath).data.role == 'admin'
+        && get(invitePath).data.email == myEmail()
+        && get(invitePath).data.status == 'pending';
+    }
+
+    function validAdminInvite() {
+      let inviteId = request.resource.data.get('inviteId', null);
+      return inviteId is string && adminInviteMatches(inviteId);
+    }
+
+    match /users/{userId} {
+      // Próprio perfil, busca por uid/e-mail próprios e membros da mesma empresa.
+      allow read: if signedIn() && (
+        userId == request.auth.uid
+        || resource.data.uid == request.auth.uid
+        || resource.data.email == myEmail()
+        || isMemberOf(resource.data.companyId)
+      );
+
+      allow create: if signedIn()
+        && userId == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role in ['admin', 'worker']
+        && (
+          (request.resource.data.role == 'admin'
+            && !companyExists(request.resource.data.companyId))
+          || (request.resource.data.role == 'worker'
+            && companyExists(request.resource.data.companyId))
+          || (request.resource.data.role == 'admin' && validAdminInvite())
+        );
+
+      allow update: if signedIn() && (
+        (userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'jobTitle', 'sector', 'companyName', 'updatedAt']))
+        || (isAdminOf(resource.data.companyId)
+          && request.resource.data.companyId == resource.data.companyId)
+      );
+
+      allow delete: if isAdminOf(resource.data.companyId);
+    }
+
+    match /companies/{companyId} {
+      allow get: if isMemberOf(companyId);
+      // Busca pelo código de convite na tela /join.
+      allow list: if signedIn() && request.query.limit <= 1;
+
+      allow create: if signedIn()
+        && request.resource.data.id == companyId
+        && request.resource.data.ownerId == request.auth.uid
+        && isAdminOf(companyId);
+
+      allow update: if isAdminOf(companyId)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.ownerId == resource.data.ownerId;
+
+      allow delete: if false;
+
+      match /tasks/{taskId} {
+        function canReadTask(task) {
+          return isActiveMemberOf(companyId)
+            && (isAdminOf(companyId) || task.assigneeUid == request.auth.uid);
+        }
+
+        function validTaskCreate() {
+          let data = request.resource.data;
+          let fields = [
+            'name', 'description', 'dueDate', 'assigneeUid', 'assigneeName',
+            'sector', 'priority', 'category', 'status', 'completedAt', 'archivedAt',
+            'createdByUid', 'createdAt', 'updatedAt'
+          ];
+          let assigneePath = userDoc(data.assigneeUid);
+          return data.keys().hasAll(fields) && data.keys().hasOnly(fields)
+            && data.name is string && data.name.size() > 0 && data.name.size() <= 160
+            && data.description is string && data.description.size() <= 4000
+            && data.dueDate is string && data.dueDate.size() <= 100
+            && data.assigneeUid is string
+            && data.assigneeName is string && data.assigneeName.size() <= 120
+            && data.sector is string && data.sector.size() <= 120
+            && data.priority in ['alta', 'media', 'baixa']
+            && data.category is string && data.category.size() <= 120
+            && data.status == 'pending'
+            && data.completedAt == null && data.archivedAt == null
+            && data.createdByUid == request.auth.uid
+            && data.createdAt == request.time && data.updatedAt == request.time
+            && exists(assigneePath)
+            && get(assigneePath).data.companyId == companyId
+            && get(assigneePath).data.get('status', 'active') == 'active'
+            && get(assigneePath).data.name == data.assigneeName;
+        }
+
+        function validTaskCompletion(before, after, changed) {
+          return before.status == 'pending' && after.status == 'completed'
+            && after.completedAt == request.time
+            && after.get('archivedAt', null) == null
+            && changed.hasOnly(['status', 'completedAt', 'updatedAt']);
+        }
+
+        function validTaskArchive(before, after, changed) {
+          return before.status == 'completed'
+            && before.get('completedAt', null) != null
+            && before.get('archivedAt', null) == null
+            && after.get('archivedAt', null) == request.time
+            && changed.hasOnly(['archivedAt', 'updatedAt']);
+        }
+
+        function validTaskReopen(before, after, changed) {
+          return before.status == 'completed' && after.status == 'pending'
+            && after.completedAt == null && after.get('archivedAt', null) == null
+            && changed.hasOnly(['status', 'completedAt', 'archivedAt', 'updatedAt']);
+        }
+
+        function validTaskUpdate() {
+          let before = resource.data;
+          let after = request.resource.data;
+          let changed = after.diff(before).affectedKeys();
+          return after.updatedAt == request.time && (
+            (validTaskCompletion(before, after, changed)
+              && (isAdminOf(companyId) || before.assigneeUid == request.auth.uid))
+            || (isAdminOf(companyId)
+              && (validTaskArchive(before, after, changed)
+                || validTaskReopen(before, after, changed)))
+          );
+        }
+
+        // A consulta do colaborador filtra assigneeUid pelo próprio UID.
+        allow get, list: if canReadTask(resource.data);
+        allow create: if isActiveMemberOf(companyId) && isAdminOf(companyId) && validTaskCreate();
+        allow update: if isActiveMemberOf(companyId) && validTaskUpdate();
+        allow delete: if false;
+
+        match /messages/{messageId} {
+          function parentTask() {
+            return get(/databases/$(database)/documents/companies/$(companyId)/tasks/$(taskId)).data;
+          }
+
+          function validNoteCreate() {
+            let data = request.resource.data;
+            let fields = ['author', 'authorUid', 'role', 'content', 'createdAt'];
+            return data.keys().hasAll(fields) && data.keys().hasOnly(fields)
+              && data.author is string && data.author == me().name
+              && data.authorUid == request.auth.uid
+              && data.role is string && data.role == me().jobTitle
+              && data.content is string && data.content.size() > 0 && data.content.size() <= 5000
+              && data.createdAt == request.time;
+          }
+
+          allow get, list: if canReadTask(parentTask());
+          allow create: if canReadTask(parentTask())
+            && isAdminOf(companyId)
+            && validNoteCreate();
+          allow update, delete: if false;
+        }
+      }
+    }
+
+    match /invites/{inviteId} {
+      allow get: if signedIn() && (
+        resource.data.email == myEmail()
+        || isMemberOf(resource.data.companyId)
+      );
+
+      // Membros listam convites da empresa e a tela /join busca código com limit(5).
+      allow list: if signedIn() && (
+        isMemberOf(resource.data.companyId)
+        || request.query.limit <= 5
+      );
+
+      allow create: if isAdminOf(request.resource.data.companyId)
+        && request.resource.data.createdByUid == request.auth.uid;
+
+      allow update: if signedIn() && (
+        (isAdminOf(resource.data.companyId)
+          && request.resource.data.companyId == resource.data.companyId)
+        || (resource.data.email == myEmail()
+          && resource.data.status == 'pending'
+          && request.resource.data.status == 'accepted'
+          && request.resource.data.acceptedByUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'acceptedByUid', 'acceptedAt']))
+      );
+
+      allow delete: if isAdminOf(resource.data.companyId);
+    }
+
+    match /conversations/{conversationId} {
+      function isParticipant(conv) {
+        return signedIn()
+          && request.auth.uid in conv.participants
+          && isMemberOf(conv.companyId);
+      }
+
+      // Permite checar se a conversa existe antes de criá-la.
+      allow get: if signedIn() && (resource == null || isParticipant(resource.data));
+      allow list: if isParticipant(resource.data);
+
+      allow create: if isParticipant(request.resource.data)
+        && request.resource.data.participants.size() == 2;
+
+      allow update: if isParticipant(resource.data)
+        && request.resource.data.participants == resource.data.participants
+        && request.resource.data.companyId == resource.data.companyId;
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function conversation() {
+          return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+        }
+
+        allow read: if isParticipant(conversation());
+        allow create: if isParticipant(conversation())
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.content is string
+          && request.resource.data.content.size() > 0;
+
+        allow update: if isParticipant(conversation())
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
+
+        allow delete: if false;
+      }
+    }
+  }
+}

@@ -4,15 +4,19 @@ import { Text, View } from 'react-native';
 import { Button } from 'react-native-paper';
 
 type Props = {
-  onValidateAndArchive?: () => void;
-  onReopenTask?: () => void;
-  isCompleted?: boolean;
+  onValidateAndArchive: () => void;
+  onReopenTask: () => void;
+  canArchive: boolean;
+  canReopen: boolean;
+  busy: boolean;
 };
 
 export function TaskControlActionsCard({
   onValidateAndArchive,
   onReopenTask,
-  isCompleted = true,
+  canArchive,
+  canReopen,
+  busy,
 }: Props) {
   return (
     <View className="rounded-3xl border border-slate-100 bg-surface-lowest p-4 shadow-sm">
@@ -42,7 +46,8 @@ export function TaskControlActionsCard({
         contentStyle={{ height: 48 }}
         style={{ borderRadius: 16, marginTop: 14 }}
         labelStyle={{ fontWeight: '600', fontSize: 14 }}
-        onPress={onValidateAndArchive ?? (() => {})}
+        onPress={onValidateAndArchive}
+        disabled={busy || !canArchive}
       >
         Validar e Arquivar Tarefa
       </Button>
@@ -56,7 +61,8 @@ export function TaskControlActionsCard({
         contentStyle={{ height: 48 }}
         style={{ borderRadius: 16, marginTop: 10 }}
         labelStyle={{ fontWeight: '600', fontSize: 14 }}
-        onPress={onReopenTask ?? (() => {})}
+        onPress={onReopenTask}
+        disabled={busy || !canReopen}
       >
         Reabrir Tarefa (Pendente)
       </Button>

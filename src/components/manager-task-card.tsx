@@ -1,25 +1,16 @@
+import type { Task } from '@/types/task';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, Text, View } from 'react-native';
 import { IconButton } from 'react-native-paper';
 
-export type ManagerTask = {
-  id: string;
-  title: string;
-  description: string;
-  assignee: string;
-  time: string;
-  status: 'pending' | 'completed';
-  category?: string;
-};
-
 type Props = {
-  task: ManagerTask;
+  task: Task;
   onPress?: () => void;
   onMenuPress?: () => void;
 };
 
 export function ManagerTaskCard({ task, onPress, onMenuPress }: Props) {
-  const isCompleted = task.status === 'completed';
+  const isCompleted = task.status !== 'pending';
 
   return (
     <Pressable
@@ -32,7 +23,9 @@ export function ManagerTaskCard({ task, onPress, onMenuPress }: Props) {
           {isCompleted ? (
             <View className="flex-row items-center gap-1 rounded-full bg-surface-container px-2.5 py-1">
               <MaterialCommunityIcons name="check" size={13} color="#45464E" />
-              <Text className="text-[11px] font-medium text-on-surface-variant">Concluída</Text>
+              <Text className="text-[11px] font-medium text-on-surface-variant">
+                {task.status === 'archived' ? 'Arquivada' : 'Concluída'}
+              </Text>
             </View>
           ) : (
             <View className="flex-row items-center gap-1 rounded-full bg-surface-container px-2.5 py-1">
@@ -41,9 +34,9 @@ export function ManagerTaskCard({ task, onPress, onMenuPress }: Props) {
             </View>
           )}
 
-          {task.category && (
+          {task.priority && (
             <Text className="text-xs font-medium text-on-surface-variant">
-              {task.category}
+              {task.priority}
             </Text>
           )}
         </View>
@@ -70,7 +63,7 @@ export function ManagerTaskCard({ task, onPress, onMenuPress }: Props) {
       {/* Linha inferior: Responsável (Apenas nome, sem foto) e Prazo */}
       <View className="mt-3.5 flex-row items-center justify-between border-t border-slate-100 pt-2.5">
         <Text className="text-xs font-semibold text-on-surface">
-          {task.assignee}
+          {task.assigneeName}
         </Text>
 
         <View className="flex-row items-center gap-1">
@@ -79,7 +72,7 @@ export function ManagerTaskCard({ task, onPress, onMenuPress }: Props) {
           ) : (
             <MaterialCommunityIcons name="clock-outline" size={14} color="#75777F" />
           )}
-          <Text className="text-xs text-on-surface-variant">{task.time}</Text>
+          <Text className="text-xs text-on-surface-variant">{task.dueDate || 'Sem prazo'}</Text>
         </View>
       </View>
     </Pressable>

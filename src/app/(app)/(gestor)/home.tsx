@@ -1,58 +1,22 @@
-import { DelegateTaskModal, DelegationPayload } from '@/components/delegate-task-modal';
+import { DelegateTaskModal, type DelegationPayload } from '@/components/delegate-task-modal';
 import { ManagerHeroCard } from '@/components/manager-hero-card';
 import { ManagerStatCard } from '@/components/manager-stat-card';
-import { ManagerTaskCard, type ManagerTask } from '@/components/manager-task-card';
+import { ManagerTaskCard } from '@/components/manager-task-card';
 import { ScreenHeader } from '@/components/screen-header';
 import { useAuth } from '@/hooks/auth-context';
+import { useTasks } from '@/hooks/tasks-context';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, ScrollView, Text, View } from 'react-native';
-import { Button, Chip, FAB, Searchbar } from 'react-native-paper';
-
-// Dados definidos localmente no próprio arquivo (sem mock externo)
-const METRICS_DATA = {
-  total: 14,
-  pending: 6,
-  completed: 8,
-  completedPercentage: '57% concluído',
-};
-
-const INITIAL_TASKS: ManagerTask[] = [
-  {
-    id: '1',
-    title: 'Code Review do PR #482',
-    description: 'Revisar os arquivos alterados, validar a cobertura de testes e aprovar ou solicitar correções.',
-    assignee: 'Rafael Horeay',
-    time: 'Hoje, 17:00',
-    status: 'pending',
-    category: 'Alta Prioridade',
-  },
-  {
-    id: '2',
-    title: 'Configuração do Runner CI/CD',
-    description: 'Instalar o novo runner, definir tags de execução e revisar os workflows de deploy.',
-    assignee: 'Eduarda Najara',
-    time: 'Hoje, 11:30',
-    status: 'completed',
-  },
-  {
-    id: '3',
-    title: 'Auditoria de Cobertura de Testes',
-    description: 'Levantar a cobertura dos módulos críticos e gerar relatório para o Sprint.',
-    assignee: 'Kemily Freitas',
-    time: 'Amanhã, 18:00',
-    status: 'pending',
-    category: 'Rotina',
-  },
-];
+import { ActivityIndicator, Button, Chip, FAB, Searchbar } from 'react-native-paper';
 
 export default function GestorHomeScreen() {
   const router = useRouter();
   const { profile, company } = useAuth();
+  const { tasks, loading, error, delegateTask } = useTasks();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
-  const [tasks, setTasks] = useState<ManagerTask[]>(INITIAL_TASKS);
   const [delegateVisible, setDelegateVisible] = useState(false);
 
   const companyDisplayName =
@@ -60,33 +24,20 @@ export default function GestorHomeScreen() {
 
   const managerDisplayName = profile?.name || 'Gestor';
 
+  const pendingCount = tasks.filter((task) => task.status === 'pending').length;
+  const completedCount = tasks.length - pendingCount;
+  const completedPercentage = tasks.length ? Math.round(completedCount * 100 / tasks.length) : 0;
+
   const filteredTasks = tasks.filter((task) => {
-  const matchesStatus =
-    filter === 'all' || task.status === filter;
+    const status = task.status === 'pending' ? 'pending' : 'completed';
+    const matchesStatus = filter === 'all' || status === filter;
+    const matchesSearch = task.title.toLowerCase().includes(searchQuery.trim().toLowerCase());
+    const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
+    return matchesStatus && matchesSearch && matchesPriority;
+  });
 
-  const matchesSearch = task.title
-    .toLowerCase()
-    .includes(searchQuery.trim().toLowerCase());
-
-  const matchesPriority =
-    priorityFilter === 'all' ||
-    task.category === priorityFilter;
-
-  return matchesStatus && matchesSearch && matchesPriority;
-});
-  const handleDelegate = (payload: DelegationPayload) => {
-    setTasks((prev) => [
-      {
-        id: `-${Date.now()}`,
-        title: payload.title,
-        description: payload.description,
-        assignee: payload.assignee.name,
-        time: payload.dueDate,
-        status: 'pending',
-        category: payload.priority,
-      },
-      ...prev,
-    ]);
+  const handleDelegate = async ({ assignee, ...task }: DelegationPayload) => {
+    await delegateTask(task, assignee);
     setDelegateVisible(false);
   };
 
@@ -107,25 +58,25 @@ export default function GestorHomeScreen() {
             <ManagerHeroCard
               greeting={`Olá, ${managerDisplayName} 👋`}
               company={companyDisplayName}
-              date="Hoje, 24 de Out"
+              date={new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}
             />
 
             {/* Cards de Métricas */}
             <View className="mt-4 flex-row gap-2.5">
               <ManagerStatCard
                 title="Total"
-                value={METRICS_DATA.total}
-                subtitle="Tarefas ativas"
+                value={tasks.length}
+                subtitle="Tarefas da empresa"
               />
               <ManagerStatCard
                 title="Pendentes"
-                value={METRICS_DATA.pending}
+                value={pendingCount}
                 subtitle="Requer ação"
               />
               <ManagerStatCard
                 title="Concluídas"
-                value={METRICS_DATA.completed}
-                subtitle={METRICS_DATA.completedPercentage}
+                value={completedCount}
+                subtitle={`${completedPercentage}% concluído`}
               />
             </View>
 
@@ -151,7 +102,7 @@ export default function GestorHomeScreen() {
                 </Text>
                 <View className="rounded-full bg-surface-container px-2 py-0.5">
                   <Text className="text-xs font-medium text-on-surface-variant">
-                    {filteredTasks.length} ativas
+                    {filteredTasks.length}
                   </Text>
                 </View>
               </View>
@@ -242,7 +193,7 @@ export default function GestorHomeScreen() {
                   fontSize: 12,
                 }}
               >
-                Pendentes ({METRICS_DATA.pending})
+                Pendentes ({pendingCount})
               </Chip>
 
               <Chip
@@ -269,15 +220,23 @@ export default function GestorHomeScreen() {
                   fontSize: 12,
                 }}
               >
-                Concluídas ({METRICS_DATA.completed})
+                Concluídas ({completedCount})
               </Chip>
             </ScrollView>
           </>
         }
+        ListEmptyComponent={loading ? <ActivityIndicator /> : (
+          <Text className={error ? 'text-error' : 'text-on-surface-variant'}>
+            {error ?? 'Nenhuma tarefa encontrada.'}
+          </Text>
+        )}
         renderItem={({ item }) => (
           <ManagerTaskCard
             task={item}
-            onPress={() => router.push('/(app)/(gestor)/view_task')}
+            onPress={() => router.push({
+              pathname: '/(app)/(gestor)/view_task',
+              params: { id: item.id },
+            })}
           />
         )}
       />

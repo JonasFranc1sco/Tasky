@@ -1,23 +1,25 @@
 import { ScreenHeader } from '@/components/screen-header';
 import { TaskCard } from '@/components/task-card';
-import { WeeklyGoalCard } from '@/components/weekly-goal-card';
 import { useAuth } from '@/hooks/auth-context';
 import { useTasks } from '@/hooks/tasks-context';
+import { useTaskCompletion } from '@/hooks/use-task-completion';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Text, View } from 'react-native';
-import { SegmentedButtons } from 'react-native-paper';
+import { ActivityIndicator, SegmentedButtons, Snackbar } from 'react-native-paper';
 
 export default function TaskQueueScreen() {
     const router = useRouter();
-    const { profile } = useAuth();
-    const { tasks, completeTask } = useTasks();
+    const { user, profile } = useAuth();
+    const { tasks, loading, error } = useTasks();
+    const { complete, completingId, completionError, clearCompletionError } = useTaskCompletion();
     const [tab, setTab] = useState<'pending' | 'completed'>('pending');
 
-    const pending = tasks.filter((t) => !t.completedAt);
-    const completed = tasks.filter((t) => t.completedAt);
+    const assigned = tasks.filter((t) => t.assigneeUid === user?.uid);
+    const pending = assigned.filter((t) => t.status === 'pending');
+    const completed = assigned.filter((t) => t.status !== 'pending');
     const list = tab === 'pending' ? pending : completed;
-    const highPriorities = pending.filter((t) => t.priority === 'alta').length;
+    const highPriorities = pending.filter((t) => t.priority === 'Alta Prioridade').length;
 
     return (
     <View className="flex-1 bg-surface">
@@ -45,18 +47,31 @@ export default function TaskQueueScreen() {
 
             <View className="flex-row items-center justify-between px-1">
               <View className="flex-row items-center gap-2">
-                <Text className="text-base font-semibold text-on-surface">Minha Fila de Hoje</Text>
+                <Text className="text-base font-semibold text-on-surface">Minhas tarefas</Text>
                 <View className="h-1.5 w-1.5 rounded-full bg-primary" />
               </View>
               <Text className="text-[11px] text-on-surface-variant">{highPriorities} tarefas prioritárias</Text>
             </View>
           </>
         }
-        ListFooterComponent={tab === 'completed' ? <WeeklyGoalCard done={7} total={9} /> : null}
+        ListEmptyComponent={loading ? <ActivityIndicator /> : (
+          <Text className={error ? 'text-error' : 'text-on-surface-variant'}>
+            {error ?? (tab === 'pending' ? 'Nenhuma tarefa pendente.' : 'Nenhuma tarefa concluída.')}
+          </Text>
+        )}
         renderItem={({ item }) => (
-          <TaskCard task={item} onPress={() => router.push(`/task/${item.id}`)} onComplete={completeTask} />
+          <TaskCard
+            task={item}
+            onPress={() => router.push({ pathname: '/task/[id]', params: { id: item.id } })}
+            onComplete={complete}
+            completing={completingId === item.id}
+            disabled={completingId !== null}
+          />
         )}
       />
+      <Snackbar visible={Boolean(completionError)} onDismiss={clearCompletionError}>
+        {completionError}
+      </Snackbar>
     </View>
     );
 }

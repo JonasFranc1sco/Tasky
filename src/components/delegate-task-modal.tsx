@@ -1,23 +1,18 @@
 import { useTeam } from '@/hooks/team-context';
 import type { EmployeeMember } from '@/types/company';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { taskErrorMessage } from '@/services/task-service';
+import type { NewTask } from '@/types/task';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Chip, Modal, Portal } from 'react-native-paper';
 
-export type DelegationPayload = {
-  title: string;
-  description: string;
-  sector: string;
-  dueDate: string;
-  priority: 'Alta Prioridade' | 'Rotina' | 'Baixa';
-  assignee: EmployeeMember;
-};
+export type DelegationPayload = NewTask & { assignee: EmployeeMember };
 
 type Props = {
   visible: boolean;
   onDismiss: () => void;
-  onConfirm: (payload: DelegationPayload) => void;
+  onConfirm: (payload: DelegationPayload) => Promise<void>;
 };
 
 const PRIORITIES: DelegationPayload['priority'][] = [
@@ -44,6 +39,8 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
     useState<DelegationPayload['priority']>('Alta Prioridade');
   const [assignee, setAssignee] = useState<EmployeeMember | null>(null);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   const reset = () => {
     setTitle('');
@@ -56,11 +53,13 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
   };
 
   const handleDismiss = () => {
+    if (savingRef.current) return;
     reset();
     onDismiss();
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (savingRef.current) return;
     if (!title.trim()) {
       setError('Informe o título da tarefa.');
       return;
@@ -69,15 +68,25 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
       setError('Selecione o funcionário responsável.');
       return;
     }
-    onConfirm({
-      title: title.trim(),
-      description: description.trim(),
-      sector: sector.trim(),
-      dueDate: dueDate.trim(),
-      priority,
-      assignee,
-    });
-    reset();
+    savingRef.current = true;
+    setSaving(true);
+    setError('');
+    try {
+      await onConfirm({
+        title: title.trim(),
+        description: description.trim(),
+        sector: sector.trim(),
+        dueDate: dueDate.trim(),
+        priority,
+        assignee,
+      });
+      reset();
+    } catch (cause) {
+      setError(taskErrorMessage(cause, 'Não foi possível delegar a tarefa.'));
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
   const inputClass =
@@ -115,6 +124,8 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
                 <TextInput
                   className={inputClass}
                   value={title}
+                  editable={!saving}
+                  maxLength={160}
                   onChangeText={setTitle}
                   placeholder="Ex.: Code Review do PR #482"
                   placeholderTextColor="#75777F"
@@ -126,6 +137,8 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
                 <TextInput
                   className={inputClass}
                   value={description}
+                  editable={!saving}
+                  maxLength={4000}
                   onChangeText={setDescription}
                   placeholder="Detalhe o que precisa ser feito..."
                   placeholderTextColor="#75777F"
@@ -139,6 +152,8 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
                   <TextInput
                     className={inputClass}
                     value={sector}
+                    editable={!saving}
+                    maxLength={100}
                     onChangeText={setSector}
                     placeholder="Backend"
                     placeholderTextColor="#75777F"
@@ -149,6 +164,8 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
                   <TextInput
                     className={inputClass}
                     value={dueDate}
+                    editable={!saving}
+                    maxLength={100}
                     onChangeText={setDueDate}
                     placeholder="Hoje, 16:00"
                     placeholderTextColor="#75777F"
@@ -164,6 +181,7 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
                       key={item}
                       mode="flat"
                       selected={priority === item}
+                      disabled={saving}
                       onPress={() => setPriority(item)}
                       style={{
                         backgroundColor:
@@ -198,6 +216,7 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
                           key={employee.id}
                           className={`flex-row items-center gap-3 rounded-xl border p-3 ${selected ? 'border-primary bg-primary-soft' : 'border-slate-200 bg-surface-container'}`}
                           onPress={() => setAssignee(employee)}
+                          disabled={saving}
                         >
                           <View className="h-9 w-9 items-center justify-center rounded-full bg-surface-lowest">
                             <Text className="text-xs font-bold text-primary">
@@ -248,9 +267,10 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
             <Pressable
               className="h-11 flex-1 items-center justify-center rounded-xl bg-primary active:opacity-80"
               onPress={handleConfirm}
+              disabled={saving}
             >
               <Text className="text-sm font-semibold text-white">
-                Delegar Tarefa
+                {saving ? 'Salvando…' : 'Delegar Tarefa'}
               </Text>
             </Pressable>
           </View>
