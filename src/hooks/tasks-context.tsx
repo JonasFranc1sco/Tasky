@@ -1,7 +1,10 @@
-import { MOCK_TASKS, type Task, type TaskNote } from '@/constants/tasks';
+import type { Task } from '@/constants/tasks';
+import { useAuth } from '@/hooks/auth-context';
+import { TaskService } from '@/services/task-service';
 import {
   createContext,
   useCallback,
+  useEffect,
   useContext,
   useMemo,
   useState,
@@ -17,109 +20,116 @@ export type TaskMetrics = {
   completedPercentage: string;
 };
 
-type NewTask = Omit<Task, 'id' | 'createdAt' | 'completedAt' | 'notes'>;
+type NewTask = Omit<Task, 'id' | 'createdAt' | 'completedAt'>;
 
 type TasksContextValue = {
   tasks: Task[];
   metrics: TaskMetrics;
-  addTask: (task: NewTask) => void;
-  addTaskNote: (taskId: string, note: TaskNote) => void;
-  completeTask: (id: string) => void;
-  updateTaskStatus: (id: string, status: TaskStatus) => void;
+  loading: boolean;
+  error: string | null;
+  addTask: (task: NewTask) => Promise<void>;
+  completeTask: (id: string) => Promise<void>;
+  updateTaskStatus: (id: string, status: TaskStatus) => Promise<void>;
 };
-
-const INITIAL_TASKS: Task[] = [
-  ...MOCK_TASKS,
-  {
-    id: 'm2',
-    name: 'Configuração do Runner CI/CD',
-    description:
-      'Instalar o novo runner, definir tags de execução e revisar os workflows de deploy.',
-    dueDate: 'Hoje, 11:30',
-    assignee: { name: 'Eduarda Najara' },
-    priority: 'media',
-    category: 'Rotina',
-    createdAt: '2026-10-16T12:30:00.000Z',
-    completedAt: '2026-10-18T18:42:00.000Z',
-    notes: [
-      {
-        id: 'm2-note-1',
-        author: 'João Pedro',
-        role: 'Supervisor',
-        timestamp: '18/10/2026, 12:42',
-        content:
-          'Confirmar a versão do runner e o cache de dependências antes de encerrar a configuração.',
-      },
-    ],
-  },
-  {
-    id: 'm3',
-    name: 'Auditoria de Cobertura de Testes',
-    description:
-      'Levantar a cobertura dos módulos críticos e gerar relatório para o Sprint.',
-    dueDate: 'Amanhã, 18:00',
-    assignee: { name: 'Kemily Freitas' },
-    priority: 'media',
-    category: 'Rotina',
-    createdAt: '2026-10-16T12:30:00.000Z',
-    completedAt: null,
-  },
-];
 
 const TasksContext = createContext<TasksContextValue | null>(null);
 
 export function TasksProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useState<Task[]>(() =>
-    INITIAL_TASKS.map((task) => ({ ...task, notes: task.notes ?? [] }))
-  );
+  const { profile, loading: authLoading } = useAuth();
+  const scopeKey =
+    profile?.uid && profile.companyId
+      ? `${profile.uid}:${profile.companyId}:${profile.role}`
+      : null;
+  const [snapshot, setSnapshot] = useState<{
+    scope: string | null;
+    tasks: Task[];
+    loading: boolean;
+    error: string | null;
+  }>({ scope: null, tasks: [], loading: true, error: null });
+  const currentSnapshot =
+    snapshot.scope === scopeKey
+      ? snapshot
+      : {
+          tasks: [],
+          loading: authLoading || !!scopeKey,
+          error: null,
+        };
+  const visibleTasks = currentSnapshot.tasks;
 
-  const updateTaskStatus = useCallback((id: string, status: TaskStatus) => {
-    setTasks((current) =>
-      current.map((task) =>
-        task.id === id
-          ? {
-              ...task,
-              completedAt:
-                status === 'completed'
-                  ? task.completedAt ?? new Date().toISOString()
-                  : null,
-            }
-          : task
-      )
+  useEffect(() => {
+    if (authLoading) return;
+    if (!profile?.companyId || !profile.uid || !scopeKey) {
+      setSnapshot({ scope: null, tasks: [], loading: false, error: null });
+      return;
+    }
+
+    const subscriptionScope = scopeKey;
+    setSnapshot({
+      scope: subscriptionScope,
+      tasks: [],
+      loading: true,
+      error: null,
+    });
+    return TaskService.subscribeToCompanyTasks(
+      profile.companyId,
+      profile.uid,
+      profile.role === 'admin',
+      (nextTasks) => {
+        setSnapshot({
+          scope: subscriptionScope,
+          tasks: nextTasks,
+          loading: false,
+          error: null,
+        });
+      },
+      (subscriptionError) => {
+        setSnapshot({
+          scope: subscriptionScope,
+          tasks: [],
+          loading: false,
+          error:
+            subscriptionError.message || 'Não foi possível sincronizar as tarefas.',
+        });
+      }
     );
-  }, []);
+  }, [authLoading, profile?.companyId, profile?.role, profile?.uid, scopeKey]);
+
+  const updateTaskStatus = useCallback(
+    async (id: string, status: TaskStatus) => {
+      if (!profile?.companyId || !profile.uid) {
+        throw new Error('Entre na sua conta para atualizar esta tarefa.');
+      }
+      const task = visibleTasks.find((item) => item.id === id);
+      if (!task) throw new Error('Tarefa não encontrada.');
+      if (
+        profile.role !== 'admin' &&
+        (status !== 'completed' || task.assignee.uid !== profile.uid)
+      ) {
+        throw new Error('Você não tem permissão para atualizar esta tarefa.');
+      }
+      await TaskService.updateTaskStatus(profile.companyId, id, status);
+    },
+    [profile, visibleTasks]
+  );
 
   const completeTask = useCallback(
     (id: string) => updateTaskStatus(id, 'completed'),
     [updateTaskStatus]
   );
 
-  const addTask = useCallback((task: NewTask) => {
-    setTasks((current) => [
-      {
-        ...task,
-        id: `task-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        completedAt: null,
-        notes: [],
-      },
-      ...current,
-    ]);
-  }, []);
-
-  const addTaskNote = useCallback((taskId: string, note: TaskNote) => {
-    setTasks((current) =>
-      current.map((task) =>
-        task.id === taskId
-          ? { ...task, notes: [...(task.notes ?? []), note] }
-          : task
-      )
-    );
-  }, []);
+  const addTask = useCallback(
+    async (task: NewTask) => {
+      if (profile?.role !== 'admin' || !profile.companyId || !profile.uid) {
+        throw new Error('Apenas gestores podem delegar tarefas.');
+      }
+      await TaskService.createTask(profile.companyId, profile.uid, task);
+    },
+    [profile]
+  );
 
   const metrics = useMemo<TaskMetrics>(() => {
-    const completed = tasks.filter((task) => task.completedAt).length;
-    const total = tasks.length;
+    const completed = visibleTasks.filter((task) => task.completedAt).length;
+    const total = visibleTasks.length;
     return {
       total,
       pending: total - completed,
@@ -128,11 +138,19 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         total === 0 ? 0 : Math.round((completed / total) * 100)
       }% concluído`,
     };
-  }, [tasks]);
+  }, [visibleTasks]);
 
   const value = useMemo(
-    () => ({ tasks, metrics, addTask, addTaskNote, completeTask, updateTaskStatus }),
-    [tasks, metrics, addTask, addTaskNote, completeTask, updateTaskStatus]
+    () => ({
+      tasks: visibleTasks,
+      metrics,
+      loading: currentSnapshot.loading,
+      error: currentSnapshot.error,
+      addTask,
+      completeTask,
+      updateTaskStatus,
+    }),
+    [visibleTasks, metrics, currentSnapshot, addTask, completeTask, updateTaskStatus]
   );
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;

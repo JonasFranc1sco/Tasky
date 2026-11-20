@@ -18,7 +18,7 @@ export type DelegationPayload = {
 type Props = {
   visible: boolean;
   onDismiss: () => void;
-  onConfirm: (payload: DelegationPayload) => void;
+  onConfirm: (payload: DelegationPayload) => void | Promise<void>;
 };
 
 const PRIORITIES: DelegationPayload['priority'][] = [
@@ -47,6 +47,7 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
     useState<DelegationPayload['priority']>('Alta Prioridade');
   const [assignee, setAssignee] = useState<EmployeeMember | null>(null);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const reset = () => {
     setTitle('');
@@ -63,7 +64,7 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
     onDismiss();
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!title.trim()) {
       setError('Informe o título da tarefa.');
       return;
@@ -72,15 +73,27 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
       setError('Selecione o funcionário responsável.');
       return;
     }
-    onConfirm({
-      title: title.trim(),
-      description: description.trim(),
-      sector: sector.trim(),
-      dueDate: dueDate.trim(),
-      priority,
-      assignee,
-    });
-    reset();
+    setSaving(true);
+    setError('');
+    try {
+      await onConfirm({
+        title: title.trim(),
+        description: description.trim(),
+        sector: sector.trim(),
+        dueDate: dueDate.trim(),
+        priority,
+        assignee,
+      });
+      reset();
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : 'Não foi possível delegar a tarefa.'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const inputClass =
@@ -254,9 +267,10 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
             <Pressable
               className="h-11 flex-1 items-center justify-center rounded-xl bg-primary active:opacity-80"
               onPress={handleConfirm}
+              disabled={saving}
             >
               <Text className="text-sm font-semibold text-white">
-                Delegar Tarefa
+                {saving ? 'Salvando...' : 'Delegar Tarefa'}
               </Text>
             </Pressable>
           </View>

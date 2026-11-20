@@ -8,8 +8,8 @@ import { useAuth } from '@/hooks/auth-context';
 import { useTasks } from '@/hooks/tasks-context';
 import { Stack, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, ScrollView, Text, View, useWindowDimensions } from 'react-native';
-import { Button, Chip, FAB, Searchbar } from 'react-native-paper';
+import { Alert, FlatList, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Button, Chip, FAB, Searchbar, Snackbar } from 'react-native-paper';
 
 export default function GestorHomeScreen() {
   const router = useRouter();
@@ -22,11 +22,14 @@ export default function GestorHomeScreen() {
   const {
     tasks: allTasks,
     metrics,
+    loading: tasksLoading,
+    error: tasksError,
     addTask,
     updateTaskStatus,
   } = useTasks();
   const tasks = useMemo(() => allTasks.map(toManagerTask), [allTasks]);
   const [delegateVisible, setDelegateVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
   const companyDisplayName =
     company?.companyName || profile?.companyName || 'Empresa';
@@ -42,8 +45,8 @@ export default function GestorHomeScreen() {
     return matchesStatus && matchesSearch;
   });
 
-  const handleDelegate = (payload: DelegationPayload) => {
-    addTask({
+  const handleDelegate = async (payload: DelegationPayload) => {
+    await addTask({
       name: payload.title,
       description: payload.description,
       assignee: { name: payload.assignee.name, uid: payload.assignee.uid },
@@ -58,6 +61,7 @@ export default function GestorHomeScreen() {
       category: payload.priority,
     });
     setDelegateVisible(false);
+    setSnackbarMessage('Tarefa delegada e sincronizada.');
   };
 
   return (
@@ -70,6 +74,13 @@ export default function GestorHomeScreen() {
         key={numColumns}
         style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}
         data={filteredTasks}
+        ListEmptyComponent={
+          <Text className="py-6 text-center text-sm text-on-surface-variant">
+            {tasksLoading
+              ? 'Sincronizando tarefas...'
+              : tasksError ?? 'Nenhuma tarefa cadastrada nesta empresa.'}
+          </Text>
+        }
         numColumns={numColumns}
         columnWrapperStyle={numColumns > 1 ? { gap: 12 } : undefined}
         keyExtractor={(item) => item.id}
@@ -241,12 +252,17 @@ export default function GestorHomeScreen() {
                   `/(app)/(gestor)/view_task?taskId=${encodeURIComponent(item.id)}`
                 )
               }
-              onToggleStatus={() =>
-                updateTaskStatus(
+              onToggleStatus={() => {
+                void updateTaskStatus(
                   item.id,
                   item.status === 'completed' ? 'pending' : 'completed'
-                )
-              }
+                ).catch((failure: unknown) => {
+                  Alert.alert(
+                    'Não foi possível atualizar',
+                    failure instanceof Error ? failure.message : 'Tente novamente.'
+                  );
+                });
+              }}
             />
           </View>
         )}
@@ -272,6 +288,13 @@ export default function GestorHomeScreen() {
         onDismiss={() => setDelegateVisible(false)}
         onConfirm={handleDelegate}
       />
+      <Snackbar
+        visible={!!snackbarMessage}
+        onDismiss={() => setSnackbarMessage(null)}
+        duration={2500}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 }

@@ -2,114 +2,80 @@ import { TaskControlActionsCard } from '@/components/task-control-actions-card';
 import { TaskDetailHeader } from '@/components/task-detail-header';
 import { TaskInfoCard, type TaskDetailInfo } from '@/components/task-info-card';
 import { TaskNotesCard } from '@/components/task-notes-card';
-import type { TaskNote } from '@/constants/tasks';
-import { useAuth } from '@/hooks/auth-context';
+import { useTaskNotes } from '@/hooks/task-notes';
 import { useTasks } from '@/hooks/tasks-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { Snackbar } from 'react-native-paper';
-
-// Dados definidos localmente no próprio arquivo (sem mock externo)
-const INITIAL_TASK: TaskDetailInfo = {
-  id: 'RF06',
-  code: 'RF06',
-  title: 'Configuração do Runner CI/CD',
-  description:
-    'Instalar e validar o novo runner na organização, configurar as tags de execução e revisar os workflows de deploy.',
-  status: 'completed',
-  assignee: 'Rafael Horeay',
-  dueDate: '18/10 às 16:00',
-  createdAt: '16/10 às 09:30',
-  completedAt: '18/10 às 15:42',
-};
-
-const FALLBACK_NOTES: TaskNote[] = [
-  {
-    id: '1',
-    author: 'João Pedro',
-    role: 'Supervisor',
-    timestamp: 'Ontem',
-    content:
-      'Confirmar a versão do runner e o cache de dependências antes de encerrar a configuração.',
-  },
-];
 
 export default function GestorViewTaskScreen() {
   const router = useRouter();
   const { taskId } = useLocalSearchParams<{ taskId?: string }>();
   const requestedTaskId = Array.isArray(taskId) ? taskId[0] : taskId;
-  const { profile } = useAuth();
-  const { tasks, addTaskNote, updateTaskStatus } = useTasks();
+  const { tasks, loading: tasksLoading, error: tasksError, updateTaskStatus } = useTasks();
   const selectedTask = tasks.find((item) => item.id === requestedTaskId);
-  const [fallbackTask, setFallbackTask] = useState<TaskDetailInfo>(INITIAL_TASK);
-  const task: TaskDetailInfo = selectedTask
-    ? {
-        id: selectedTask.id,
-        code: `TSK-${selectedTask.id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}`,
-        title: selectedTask.name,
-        description: selectedTask.description,
-        status: selectedTask.completedAt ? 'completed' : 'pending',
-        assignee: selectedTask.assignee.name,
-        dueDate: selectedTask.dueDate || 'Sem prazo definido',
-        createdAt: formatTaskDate(selectedTask.createdAt) ?? '—',
-        completedAt: formatTaskDate(selectedTask.completedAt ?? undefined),
-      }
-    : fallbackTask;
-  const [fallbackNotes, setFallbackNotes] = useState<TaskNote[]>(FALLBACK_NOTES);
+  const { notes, loading: notesLoading, error: notesError, addNote } =
+    useTaskNotes(selectedTask?.id ?? null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
-  const handleSaveNote = (content: string) => {
-    const newNote: TaskNote = {
-      id: Date.now().toString(),
-      author: profile?.name ?? 'Gestor',
-      role: profile?.jobTitle ?? 'Supervisor',
-      timestamp: new Date().toLocaleString('pt-BR', {
-        dateStyle: 'short',
-        timeStyle: 'short',
-      }),
-      content,
-    };
-    if (selectedTask) {
-      addTaskNote(selectedTask.id, newNote);
-    } else {
-      setFallbackNotes((current) => [...current, newNote]);
-    }
+  const handleSaveNote = async (content: string) => {
+    await addNote(content);
     setSnackbarMessage('Nota adicionada com sucesso!');
   };
 
-  const handleValidateAndArchive = () => {
-    if (selectedTask) {
-      updateTaskStatus(selectedTask.id, 'completed');
-    } else {
-      setFallbackTask((current) => ({
-        ...current,
-        status: 'completed',
-        completedAt: current.completedAt ?? '18/10 às 15:42',
-      }));
+  const handleValidateAndArchive = async () => {
+    if (!selectedTask) return;
+    try {
+      await updateTaskStatus(selectedTask.id, 'completed');
+      setSnackbarMessage('Tarefa validada e arquivada.');
+    } catch (error) {
+      setSnackbarMessage(
+        error instanceof Error ? error.message : 'Não foi possível atualizar a tarefa.'
+      );
     }
-    Alert.alert(
-      'Tarefa Validada',
-      'A tarefa foi validada e arquivada com sucesso pelo gestor.',
-      [{ text: 'OK' }]
-    );
   };
 
-  const handleReopenTask = () => {
-    if (selectedTask) {
-      updateTaskStatus(selectedTask.id, 'pending');
-    } else {
-      setFallbackTask((current) => ({
-        ...current,
-        status: 'pending',
-        completedAt: undefined,
-      }));
+  const handleReopenTask = async () => {
+    if (!selectedTask) return;
+    try {
+      await updateTaskStatus(selectedTask.id, 'pending');
+      setSnackbarMessage('Tarefa reaberta como pendente.');
+    } catch (error) {
+      setSnackbarMessage(
+        error instanceof Error ? error.message : 'Não foi possível atualizar a tarefa.'
+      );
     }
-    Alert.alert(
-      'Tarefa Reaberta',
-      'A tarefa foi reaberta com status Pendente para revisão da equipe.',
-      [{ text: 'OK' }]
+  };
+
+  if (!selectedTask) {
+    return (
+      <View className="flex-1 bg-surface">
+        <TaskDetailHeader
+          title="Detalhes da Tarefa"
+          taskId={requestedTaskId ?? '—'}
+          onBackPress={() => router.back()}
+        />
+        <Stack.Screen options={{ headerShown: false }} />
+        <Text className="p-4 text-on-surface-variant">
+          {tasksLoading
+            ? 'Carregando tarefa...'
+            : tasksError ?? 'Tarefa não encontrada.'}
+        </Text>
+      </View>
     );
+  }
+
+  const task: TaskDetailInfo = {
+    id: selectedTask.id,
+    code: `TSK-${selectedTask.id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}`,
+    title: selectedTask.name,
+    description: selectedTask.description,
+    status: selectedTask.completedAt ? 'completed' : 'pending',
+    assignee: selectedTask.assignee.name,
+    dueDate: selectedTask.dueDate || 'Sem prazo definido',
+    createdAt: formatTaskDate(selectedTask.createdAt) ?? '—',
+    completedAt: formatTaskDate(selectedTask.completedAt ?? undefined),
   };
 
   return (
@@ -139,8 +105,10 @@ export default function GestorViewTaskScreen() {
 
         {/* Card de Observações da Chefia e Inclusão de Apontamentos */}
         <TaskNotesCard
-          notes={selectedTask?.notes ?? fallbackNotes}
+          notes={notes}
           onSaveNote={handleSaveNote}
+          loading={notesLoading}
+          error={notesError}
         />
 
         {/* Card de Ações de Controle (Validação e Reabertura) */}

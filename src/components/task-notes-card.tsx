@@ -6,10 +6,12 @@ import type { TaskNote } from '@/constants/tasks';
 
 type Props = {
   notes: TaskNote[];
-  onSaveNote?: (content: string) => void;
+  onSaveNote?: (content: string) => void | Promise<void>;
   readOnly?: boolean;
   title?: string;
   emptyMessage?: string;
+  loading?: boolean;
+  error?: string | null;
 };
 
 export function TaskNotesCard({
@@ -18,13 +20,29 @@ export function TaskNotesCard({
   readOnly = false,
   title = 'Observações da Chefia',
   emptyMessage = 'Nenhuma observação registrada.',
+  loading = false,
+  error = null,
 }: Props) {
   const [inputText, setInputText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!inputText.trim()) return;
-    onSaveNote?.(inputText.trim());
-    setInputText('');
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await onSaveNote?.(inputText.trim());
+      setInputText('');
+    } catch (saveFailure) {
+      setSaveError(
+        saveFailure instanceof Error
+          ? saveFailure.message
+          : 'Não foi possível salvar a nota.'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const entryCountLabel = readOnly
@@ -57,6 +75,11 @@ export function TaskNotesCard({
 
       {/* Lista de Notas Cadastradas */}
       <View className="mt-3.5 gap-2.5">
+        {loading && notes.length === 0 ? (
+          <Text className="rounded-2xl bg-surface-low p-3.5 text-xs text-on-surface-variant">
+            Carregando mensagens...
+          </Text>
+        ) : null}
         {notes.map((note) => (
           <View
             key={note.id}
@@ -84,12 +107,16 @@ export function TaskNotesCard({
             </Text>
           </View>
         ))}
-        {notes.length === 0 && (
+        {!loading && notes.length === 0 && (
           <Text className="rounded-2xl bg-surface-low p-3.5 text-xs text-on-surface-variant">
             {emptyMessage}
           </Text>
         )}
       </View>
+
+      {error || saveError ? (
+        <Text className="mt-2 text-xs text-error">{error ?? saveError}</Text>
+      ) : null}
 
       {!readOnly && (
         <>
@@ -133,7 +160,8 @@ export function TaskNotesCard({
               style={{ borderRadius: 12 }}
               labelStyle={{ fontWeight: '600', fontSize: 13 }}
               onPress={handleSave}
-              disabled={!inputText.trim()}
+              disabled={!inputText.trim() || saving}
+              loading={saving}
             >
               Salvar Nota
             </Button>

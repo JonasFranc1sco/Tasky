@@ -3,17 +3,19 @@ import { TaskInfoCard } from '@/components/task-info-card';
 import { TaskNotesCard } from '@/components/task-notes-card';
 import { ScreenHeader } from '@/components/screen-header';
 import { useAuth } from '@/hooks/auth-context';
+import { useTaskNotes } from '@/hooks/task-notes';
 import { useTasks } from '@/hooks/tasks-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { ScrollView, Text, View } from 'react-native';
-import { Button } from 'react-native-paper';
+import { Alert, ScrollView, Text, View } from 'react-native';
+import { Button, Snackbar } from 'react-native-paper';
+import { useState } from 'react';
 
 export default function TaskDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const taskId = Array.isArray(id) ? id[0] : id;
   const { profile } = useAuth();
-  const { tasks, completeTask } = useTasks();
+  const { tasks, loading, error, completeTask } = useTasks();
   const task = tasks.find(
     (item) =>
       item.id === taskId &&
@@ -22,12 +24,17 @@ export default function TaskDetailScreen() {
         : item.assignee.name === 'Colaborador' ||
           item.assignee.name === profile?.name)
   );
+  const { notes, loading: notesLoading, error: notesError } =
+    useTaskNotes(task?.id ?? null);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   if (!task) {
     return (
       <View className="flex-1 bg-surface">
         <ScreenHeader title="Detalhes da Tarefa" />
-        <Text className="p-4 text-on-surface-variant">Tarefa não encontrada</Text>
+        <Text className="p-4 text-on-surface-variant">
+          {loading ? 'Carregando tarefa...' : error ?? 'Tarefa não encontrada.'}
+        </Text>
       </View>
     );
   }
@@ -69,10 +76,12 @@ export default function TaskDetailScreen() {
         />
 
         <TaskNotesCard
-          notes={task.notes ?? []}
+          notes={notes}
           readOnly
           title="Mensagens do gestor"
           emptyMessage="O gestor ainda não registrou mensagens para esta tarefa."
+          loading={notesLoading}
+          error={notesError}
         />
 
         {!isCompleted && (
@@ -83,12 +92,28 @@ export default function TaskDetailScreen() {
             textColor="#FFFFFF"
             contentStyle={{ height: 48 }}
             style={{ borderRadius: 16 }}
-            onPress={() => completeTask(task.id)}
+            onPress={() => {
+              void completeTask(task.id)
+                .then(() => setSnackbarVisible(true))
+                .catch((failure: unknown) =>
+                  Alert.alert(
+                    'Não foi possível concluir',
+                    failure instanceof Error ? failure.message : 'Tente novamente.'
+                  )
+                );
+            }}
           >
             Marcar como Concluída
           </Button>
         )}
       </ScrollView>
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={2200}
+      >
+        Tarefa marcada como concluída.
+      </Snackbar>
     </View>
   );
 }
