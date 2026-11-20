@@ -16,8 +16,13 @@ export default function TaskQueueScreen() {
     const { tasks, completeTask } = useTasks();
     const [tab, setTab] = useState<'pending' | 'completed'>('pending');
 
-    const pending = tasks.filter((t) => !t.completedAt);
-    const completed = tasks.filter((t) => t.completedAt);
+    const assignedTasks = tasks.filter((task) =>
+      task.assignee.uid
+        ? task.assignee.uid === profile?.uid
+        : task.assignee.name === 'Colaborador' || task.assignee.name === profile?.name
+    );
+    const pending = assignedTasks.filter((t) => !t.completedAt);
+    const completed = assignedTasks.filter((t) => t.completedAt);
     const list = tab === 'pending' ? pending : completed;
     const highPriorities = pending.filter((t) => t.priority === 'alta').length;
 

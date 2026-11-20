@@ -1,4 +1,12 @@
-export type Assignee = { name: string };
+export type Assignee = { name: string; uid?: string };
+
+export type TaskNote = {
+    id: string;
+    author: string;
+    role: string;
+    timestamp: string;
+    content: string;
+};
 
 export type Task = {
     id: string;
@@ -12,6 +20,9 @@ export type Task = {
     checklist?: { done: number; total: number; location: string };
     reopened?: boolean;
     reopenReason?: string;
+    category?: string;
+    createdAt?: string;
+    notes?: TaskNote[];
 };
 
 export const MOCK_TASKS: Task[] = [
@@ -21,6 +32,7 @@ export const MOCK_TASKS: Task[] = [
     description: 'Revisar os arquivos alterados no pull request, validar a cobertura de testes e aprovar ou solicitar correções.',
     sector: 'Backend',
     dueDate: 'Hoje, 17:00',
+    createdAt: '2026-11-18T13:00:00.000Z',
     assignee: { name: 'Colaborador' },
     priority: 'media',
     checklist: { done: 0, total: 3, location: 'Branch develop' },
@@ -32,6 +44,7 @@ export const MOCK_TASKS: Task[] = [
     description: 'Investigar o bug reportado no Sprint 14 onde tarefas duplicam ao sincronizar no modo lento de conexão.',
     sector: 'Frontend',
     dueDate: 'Amanhã, 10:00',
+    createdAt: '2026-11-18T14:00:00.000Z',
     assignee: { name: 'Colaborador' },
     priority: 'alta',
     completedAt: null,
@@ -42,6 +55,7 @@ export const MOCK_TASKS: Task[] = [
     description: 'Reordenar os jobs do pipeline e limpar builds órfãos no runner da empresa.',
     sector: 'DevOps',
     dueDate: 'Ontem',
+    createdAt: '2026-11-16T13:00:00.000Z',
     assignee: { name: 'Colaborador' },
     priority: 'media',
     reopened: true,
@@ -54,6 +68,7 @@ export const MOCK_TASKS: Task[] = [
     description: 'Rodar o audit de dependências e atualizar os pacotes com vulnerabilidades reportadas.',
     sector: 'Segurança',
     dueDate: 'Hoje, 07:00',
+    createdAt: '2026-09-12T13:00:00.000Z',
     assignee: { name: 'Colaborador' },
     priority: 'media',
     completedAt: '2026-09-16T07:45:00.000Z',
@@ -64,6 +79,7 @@ export const MOCK_TASKS: Task[] = [
     description: 'Escrever a documentação técnica da nova rota de refresh token no Swagger.',
     sector: 'Documentação',
     dueDate: 'Hoje, 08:00',
+    createdAt: '2026-09-13T13:00:00.000Z',
     assignee: { name: 'Colaborador' },
     priority: 'media',
     completedAt: '2026-09-16T08:30:00.000Z',
@@ -74,6 +90,7 @@ export const MOCK_TASKS: Task[] = [
     description: 'Gerar a build de staging, aplicar as migrations e validar os smoke tests.',
     sector: 'DevOps',
     dueDate: 'Ontem, 06:30',
+    createdAt: '2026-09-12T13:00:00.000Z',
     assignee: { name: 'Colaborador' },
     priority: 'baixa',
     completedAt: '2026-09-15T12:00:00.000Z',

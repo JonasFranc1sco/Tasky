@@ -1,8 +1,10 @@
 import { TaskControlActionsCard } from '@/components/task-control-actions-card';
 import { TaskDetailHeader } from '@/components/task-detail-header';
 import { TaskInfoCard, type TaskDetailInfo } from '@/components/task-info-card';
-import { TaskNotesCard, type TaskNote } from '@/components/task-notes-card';
-import { useManagerTasks } from '@/hooks/manager-tasks-context';
+import { TaskNotesCard } from '@/components/task-notes-card';
+import type { TaskNote } from '@/constants/tasks';
+import { useAuth } from '@/hooks/auth-context';
+import { useTasks } from '@/hooks/tasks-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
@@ -22,7 +24,7 @@ const INITIAL_TASK: TaskDetailInfo = {
   completedAt: '18/10 às 15:42',
 };
 
-const INITIAL_NOTES: TaskNote[] = [
+const FALLBACK_NOTES: TaskNote[] = [
   {
     id: '1',
     author: 'João Pedro',
@@ -37,34 +39,42 @@ export default function GestorViewTaskScreen() {
   const router = useRouter();
   const { taskId } = useLocalSearchParams<{ taskId?: string }>();
   const requestedTaskId = Array.isArray(taskId) ? taskId[0] : taskId;
-  const { tasks, updateTaskStatus } = useManagerTasks();
+  const { profile } = useAuth();
+  const { tasks, addTaskNote, updateTaskStatus } = useTasks();
   const selectedTask = tasks.find((item) => item.id === requestedTaskId);
   const [fallbackTask, setFallbackTask] = useState<TaskDetailInfo>(INITIAL_TASK);
   const task: TaskDetailInfo = selectedTask
     ? {
         id: selectedTask.id,
         code: `TSK-${selectedTask.id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}`,
-        title: selectedTask.title,
+        title: selectedTask.name,
         description: selectedTask.description,
-        status: selectedTask.status,
-        assignee: selectedTask.assignee,
-        dueDate: selectedTask.time || 'Sem prazo definido',
+        status: selectedTask.completedAt ? 'completed' : 'pending',
+        assignee: selectedTask.assignee.name,
+        dueDate: selectedTask.dueDate || 'Sem prazo definido',
         createdAt: formatTaskDate(selectedTask.createdAt) ?? '—',
-        completedAt: formatTaskDate(selectedTask.completedAt),
+        completedAt: formatTaskDate(selectedTask.completedAt ?? undefined),
       }
     : fallbackTask;
-  const [notes, setNotes] = useState<TaskNote[]>(INITIAL_NOTES);
+  const [fallbackNotes, setFallbackNotes] = useState<TaskNote[]>(FALLBACK_NOTES);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
   const handleSaveNote = (content: string) => {
     const newNote: TaskNote = {
       id: Date.now().toString(),
-      author: 'João Pedro',
-      role: 'Supervisor',
-      timestamp: 'Agora',
+      author: profile?.name ?? 'Gestor',
+      role: profile?.jobTitle ?? 'Supervisor',
+      timestamp: new Date().toLocaleString('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }),
       content,
     };
-    setNotes((prev) => [...prev, newNote]);
+    if (selectedTask) {
+      addTaskNote(selectedTask.id, newNote);
+    } else {
+      setFallbackNotes((current) => [...current, newNote]);
+    }
     setSnackbarMessage('Nota adicionada com sucesso!');
   };
 
@@ -128,7 +138,10 @@ export default function GestorViewTaskScreen() {
         <TaskInfoCard task={task} />
 
         {/* Card de Observações da Chefia e Inclusão de Apontamentos */}
-        <TaskNotesCard notes={notes} onSaveNote={handleSaveNote} />
+        <TaskNotesCard
+          notes={selectedTask?.notes ?? fallbackNotes}
+          onSaveNote={handleSaveNote}
+        />
 
         {/* Card de Ações de Controle (Validação e Reabertura) */}
         <TaskControlActionsCard

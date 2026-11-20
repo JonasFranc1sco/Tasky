@@ -1,12 +1,13 @@
 import { DelegateTaskModal, DelegationPayload } from '@/components/delegate-task-modal';
 import { ManagerHeroCard } from '@/components/manager-hero-card';
 import { ManagerStatCard } from '@/components/manager-stat-card';
-import { ManagerTaskCard } from '@/components/manager-task-card';
+import { ManagerTaskCard, type ManagerTask } from '@/components/manager-task-card';
 import { ScreenHeader } from '@/components/screen-header';
+import type { Task } from '@/constants/tasks';
 import { useAuth } from '@/hooks/auth-context';
-import { useManagerTasks } from '@/hooks/manager-tasks-context';
+import { useTasks } from '@/hooks/tasks-context';
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FlatList, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { Button, Chip, FAB, Searchbar } from 'react-native-paper';
 
@@ -18,31 +19,42 @@ export default function GestorHomeScreen() {
   const isWideMetrics = width >= 600;
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const { tasks, metrics, addTask, updateTaskStatus } = useManagerTasks();
+  const {
+    tasks: allTasks,
+    metrics,
+    addTask,
+    updateTaskStatus,
+  } = useTasks();
+  const tasks = useMemo(() => allTasks.map(toManagerTask), [allTasks]);
   const [delegateVisible, setDelegateVisible] = useState(false);
 
   const companyDisplayName =
     company?.companyName || profile?.companyName || 'Empresa';
   const managerDisplayName = profile?.name || 'Gestor';
 
- const filteredTasks = tasks.filter((task) => {
-  const matchesStatus =
-    filter === 'all' || task.status === filter;
+  const filteredTasks = tasks.filter((task) => {
+    const matchesStatus = filter === 'all' || task.status === filter;
 
-  const matchesSearch = task.title
-    .toLowerCase()
-    .includes(searchQuery.trim().toLowerCase());
+    const matchesSearch = task.title
+      .toLowerCase()
+      .includes(searchQuery.trim().toLowerCase());
 
-  return matchesStatus && matchesSearch;
+    return matchesStatus && matchesSearch;
   });
 
   const handleDelegate = (payload: DelegationPayload) => {
     addTask({
-      title: payload.title,
+      name: payload.title,
       description: payload.description,
-      assignee: payload.assignee.name,
-      time: payload.dueDate,
-      status: 'pending',
+      assignee: { name: payload.assignee.name, uid: payload.assignee.uid },
+      dueDate: payload.dueDate,
+      sector: payload.sector,
+      priority:
+        payload.priority === 'Alta Prioridade'
+          ? 'alta'
+          : payload.priority === 'Baixa'
+            ? 'baixa'
+            : 'media',
       category: payload.priority,
     });
     setDelegateVisible(false);
@@ -262,4 +274,26 @@ export default function GestorHomeScreen() {
       />
     </View>
   );
+}
+
+function toManagerTask(task: Task): ManagerTask {
+  return {
+    id: task.id,
+    title: task.name,
+    description: task.description,
+    assignee: task.assignee.name,
+    time: task.dueDate,
+    status: task.completedAt ? 'completed' : 'pending',
+    category:
+      task.category ??
+      (task.priority === 'alta'
+        ? 'Alta Prioridade'
+        : task.priority === 'baixa'
+          ? 'Baixa'
+          : task.priority === 'media'
+            ? 'Rotina'
+            : undefined),
+    createdAt: task.createdAt,
+    completedAt: task.completedAt ?? undefined,
+  };
 }

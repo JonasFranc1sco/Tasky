@@ -8,7 +8,7 @@ import {
 import { ProfileRow, ProfileSection } from '@/components/profile-section';
 import { ScreenHeader } from '@/components/screen-header';
 import { useAuth } from '@/hooks/auth-context';
-import { useManagerTasks } from '@/hooks/manager-tasks-context';
+import { useTasks } from '@/hooks/tasks-context';
 import { useProfilePhoto } from '@/hooks/use-profile-photo';
 import { useTeam } from '@/hooks/team-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -33,7 +33,7 @@ export default function AdminProfileScreen() {
     pickAndUploadPhoto,
   } = useProfilePhoto();
   const { metrics } = useTeam();
-  const { metrics: taskMetrics } = useManagerTasks();
+  const { metrics: taskMetrics } = useTasks();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [reopenAlertsEnabled, setReopenAlertsEnabled] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
