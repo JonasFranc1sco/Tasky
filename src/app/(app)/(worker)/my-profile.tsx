@@ -2,6 +2,7 @@ import { ProfileHeroCard } from '@/components/profile-hero-card';
 import { ProfileMetrics } from '@/components/profile-metrics';
 import {
   ChangePasswordModal,
+  ChangeEmailModal,
   EditPersonalInfoModal,
   TermsPrivacyModal,
 } from '@/components/profile-modals';
@@ -31,6 +32,7 @@ export default function MyProfileScreen() {
   const [reopenAlertsEnabled, setReopenAlertsEnabled] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [emailModalVisible, setEmailModalVisible] = useState(false);
   const [termsModalVisible, setTermsModalVisible] = useState(false);
   const router = useRouter();
 
@@ -111,6 +113,14 @@ export default function MyProfileScreen() {
 
         <ProfileSection title="Segurança & Conta">
           <ProfileRow
+            icon="email-outline"
+            title="Alterar E-mail de Acesso"
+            subtitle={profile?.email ?? ''}
+            onPress={() => setEmailModalVisible(true)}
+            right={CHEVRON}
+            divider
+          />
+          <ProfileRow
             icon="lock-reset"
             title="Alterar Senha de Acesso"
             onPress={() => setPasswordModalVisible(true)}
@@ -151,6 +161,10 @@ export default function MyProfileScreen() {
       <EditPersonalInfoModal
         visible={editModalVisible}
         onDismiss={() => setEditModalVisible(false)}
+      />
+      <ChangeEmailModal
+        visible={emailModalVisible}
+        onDismiss={() => setEmailModalVisible(false)}
       />
       <ChangePasswordModal
         visible={passwordModalVisible}

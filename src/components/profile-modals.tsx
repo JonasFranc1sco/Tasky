@@ -389,6 +389,219 @@ function ChangePasswordForm({ onDismiss }: { onDismiss: () => void }) {
   );
 }
 
+// Modal para troca do e-mail de acesso com confirmação pelo próprio usuário
+export function ChangeEmailModal({ visible, onDismiss }: ModalProps) {
+  const { width, height } = useWindowDimensions();
+
+  return (
+    <Portal>
+      <Modal
+        visible={visible}
+        onDismiss={onDismiss}
+        contentContainerStyle={getResponsiveModalContentStyle(width, height, 520)}
+      >
+        <ChangeEmailForm
+          key={`email-${visible ? 'open' : 'closed'}`}
+          onDismiss={onDismiss}
+        />
+      </Modal>
+    </Portal>
+  );
+}
+
+function ChangeEmailForm({ onDismiss }: { onDismiss: () => void }) {
+  const {
+    profile,
+    user,
+    requestEmailChange,
+    syncEmailAfterVerification,
+  } = useAuth();
+  const [newEmail, setNewEmail] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const handleRequestChange = async () => {
+    setError('');
+    setSuccess('');
+
+    if (!currentPassword) {
+      setError('Digite sua senha atual para confirmar sua identidade.');
+      return;
+    }
+
+    if (!newEmail.trim()) {
+      setError('Digite o novo e-mail de acesso.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await requestEmailChange(newEmail, currentPassword);
+      setCurrentPassword('');
+      setSuccess(
+        `Enviamos um link de confirmação para ${newEmail.trim().toLowerCase()}. O e-mail de acesso só muda depois da confirmação.`
+      );
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (
+        code === 'auth/wrong-password' ||
+        code === 'auth/invalid-credential'
+      ) {
+        setError('A senha atual informada está incorreta.');
+      } else if (code === 'auth/email-already-in-use') {
+        setError('Esse e-mail já está sendo usado por outra conta.');
+      } else if (code === 'auth/invalid-email') {
+        setError('Informe um endereço de e-mail válido.');
+      } else {
+        setError(
+          (err as { message?: string })?.message ??
+            'Não foi possível enviar o link de confirmação.'
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSyncConfirmedEmail = async () => {
+    setError('');
+    setSuccess('');
+
+    try {
+      setLoading(true);
+      const syncedEmail = await syncEmailAfterVerification();
+      if (!syncedEmail) {
+        setError(
+          'A confirmação ainda não foi detectada. Abra o link recebido e tente novamente.'
+        );
+        return;
+      }
+
+      setNewEmail('');
+      setSuccess(`O e-mail ${syncedEmail} foi atualizado no seu perfil.`);
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === 'permission-denied') {
+        setError(
+          'As regras do Firestore precisam ser atualizadas antes de sincronizar o e-mail.'
+        );
+      } else {
+        setError(
+          (err as { message?: string })?.message ??
+            'Não foi possível sincronizar o e-mail confirmado.'
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <View className="rounded-3xl bg-surface-lowest p-5 shadow-sm">
+      <View className="flex-row items-center justify-between">
+        <Text className="text-lg font-bold text-on-surface">
+          Alterar E-mail de Acesso
+        </Text>
+        <Pressable
+          className="h-8 w-8 items-center justify-center rounded-full bg-surface-container"
+          onPress={onDismiss}
+          hitSlop={8}
+        >
+          <MaterialCommunityIcons name="close" size={18} color="#45464E" />
+        </Pressable>
+      </View>
+
+      <Text className="mt-2 text-xs leading-5 text-on-surface-variant">
+        E-mail de acesso atual: {user?.email ?? profile?.email ?? 'Não disponível'}.
+        Após confirmar o link enviado, volte aqui e sincronize seu perfil.
+      </Text>
+      {user?.email &&
+      profile?.email &&
+      user.email.trim().toLowerCase() !== profile.email.trim().toLowerCase() ? (
+        <Text className="mt-2 text-xs leading-5 text-error">
+          O e-mail do perfil ({profile.email}) está diferente do e-mail de login
+          ({user.email}). A mudança só vale para o login depois da confirmação.
+        </Text>
+      ) : null}
+
+      <View className="mt-4 gap-3">
+        <View className="gap-1">
+          <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
+            Novo e-mail
+          </Text>
+          <TextInput
+            className={inputClass}
+            value={newEmail}
+            onChangeText={setNewEmail}
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            placeholder="Digite o novo e-mail"
+            placeholderTextColor="#75777F"
+          />
+        </View>
+
+        <View className="gap-1">
+          <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
+            Senha atual
+          </Text>
+          <TextInput
+            className={inputClass}
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            placeholder="Digite sua senha atual"
+            placeholderTextColor="#75777F"
+          />
+        </View>
+
+        <Pressable
+          className="flex-row items-center gap-1.5 self-start px-1"
+          onPress={() => setShowPassword((value) => !value)}
+        >
+          <MaterialCommunityIcons
+            name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+            size={16}
+            color="#45464E"
+          />
+          <Text className="text-xs font-medium text-on-surface-variant">
+            {showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+          </Text>
+        </Pressable>
+
+        {error ? <Text className="text-xs text-error">{error}</Text> : null}
+        {success ? (
+          <Text className="text-xs text-[#006A61]">{success}</Text>
+        ) : null}
+
+        <Pressable
+          className="h-11 items-center justify-center rounded-xl bg-primary active:opacity-80"
+          disabled={loading}
+          onPress={handleRequestChange}
+        >
+          <Text className="text-sm font-semibold text-white">
+            {loading ? 'Enviando...' : 'Enviar link de confirmação'}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          className="h-11 items-center justify-center rounded-xl bg-surface-container active:opacity-80"
+          disabled={loading}
+          onPress={handleSyncConfirmedEmail}
+        >
+          <Text className="text-sm font-semibold text-on-surface-variant">
+            Já confirmei o novo e-mail
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 // Modal informativo de Termos de Uso e Política de Privacidade do Tasky
 export function TermsPrivacyModal({ visible, onDismiss }: ModalProps) {
   const { width, height } = useWindowDimensions();

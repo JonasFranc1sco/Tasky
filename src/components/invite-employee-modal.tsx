@@ -59,6 +59,7 @@ function InviteEmployeeForm({
   const { inviteEmployee, updateEmployee } = useTeam();
 
   const isEditing = Boolean(editingMember);
+  const isActiveAccount = isEditing && !editingMember?.isInvite;
 
   const [name, setName] = useState(editingMember?.name ?? '');
   const [email, setEmail] = useState(editingMember?.email ?? '');
@@ -88,7 +89,7 @@ function InviteEmployeeForm({
       return;
     }
 
-    if (!isEditing && (!email.trim() || !email.includes('@'))) {
+    if ((!isEditing || editingMember?.isInvite) && (!email.trim() || !email.includes('@'))) {
       setError('Informe um e-mail corporativo válido.');
       return;
     }
@@ -99,7 +100,9 @@ function InviteEmployeeForm({
       if (isEditing && editingMember) {
         await updateEmployee(editingMember.id, Boolean(editingMember.isInvite), {
           name: name.trim(),
-          email: email.trim().toLowerCase(),
+          ...(editingMember.isInvite
+            ? { email: email.trim().toLowerCase() }
+            : {}),
           jobTitle: jobTitle.trim(),
           sector: sector.trim() || 'Operação',
           role,
@@ -230,14 +233,21 @@ function InviteEmployeeForm({
                   E-mail corporativo
                 </Text>
                 <TextInput
-                  className={inputClass}
+                  className={`${inputClass}${isActiveAccount ? ' opacity-60' : ''}`}
                   value={email}
                   onChangeText={setEmail}
+                  editable={!isActiveAccount}
                   autoCapitalize="none"
                   keyboardType="email-address"
                   placeholder="Ex.: jonas@dubaisoftwarehouse.com.br"
                   placeholderTextColor="#75777F"
                 />
+                {isActiveAccount ? (
+                  <Text className="px-1 text-[10px] text-on-surface-variant">
+                    Para alterar o e-mail de acesso, o próprio colaborador deve
+                    fazer a mudança em Segurança &amp; Conta.
+                  </Text>
+                ) : null}
               </View>
 
               <View className="gap-2.5" style={{ flexDirection: isNarrow ? 'column' : 'row' }}>

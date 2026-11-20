@@ -81,9 +81,9 @@ companies/{id}/tasks/{taskId} ──► responsável em users/{uid}
 
 ## Regras de segurança
 
-O arquivo local `firestore.rules` contém as regras ativas copiadas do projeto
-`tasky-60a18` e as permissões para tasks e mensagens. Essas regras já estão
-publicadas no Firestore do projeto.
+O arquivo local `firestore.rules` contém as regras de acesso para os dados do
+projeto `tasky-60a18`. Alterações locais nas regras precisam ser publicadas no
+Firestore para entrarem em vigor.
 
 Gestores ativos podem criar, consultar, validar, arquivar, reabrir e excluir
 tarefas da empresa. Ao excluir uma tarefa, o app remove primeiro suas mensagens
@@ -92,3 +92,9 @@ consultar e concluir apenas tarefas atribuídas ao próprio UID; por isso, a
 consulta do app filtra por `assigneeUid`. Mensagens são legíveis pelo gestor e
 pelo responsável da tarefa; apenas gestores podem criá-las ou excluí-las, e a
 edição de mensagens permanece bloqueada.
+
+O e-mail de login de uma conta ativa deve ser alterado pelo próprio usuário no
+Firebase Authentication, com reautenticação e confirmação por e-mail. Depois da
+confirmação, o app sincroniza `users/{uid}.email`; a regra permite essa
+atualização somente quando o novo valor corresponde ao e-mail do token
+autenticado. Administradores ainda podem editar o e-mail de convites pendentes.
