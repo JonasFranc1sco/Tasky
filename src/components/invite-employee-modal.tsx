@@ -55,10 +55,13 @@ function InviteEmployeeForm({
 }) {
   const { width, height } = useWindowDimensions();
   const isNarrow = width < 480;
-  const { company } = useAuth();
+  const { company, profile } = useAuth();
   const { inviteEmployee, updateEmployee } = useTeam();
 
   const isEditing = Boolean(editingMember);
+  const isActiveMember = isEditing && !editingMember?.isInvite;
+  // Admin editando o próprio cadastro não pode mudar a função nem o status
+  const isSelf = isActiveMember && editingMember?.uid === profile?.uid;
 
   const [name, setName] = useState(editingMember?.name ?? '');
   const [email, setEmail] = useState(editingMember?.email ?? '');
@@ -102,8 +105,7 @@ function InviteEmployeeForm({
           email: email.trim().toLowerCase(),
           jobTitle: jobTitle.trim(),
           sector: sector.trim() || 'Operação',
-          role,
-          status,
+          ...(isSelf ? {} : { role, status }),
         });
         onDismiss();
         return;
@@ -268,50 +270,56 @@ function InviteEmployeeForm({
               </View>
 
               {/* Seleção de função e permissão (admin ou worker) */}
-              <View className="gap-1">
-                <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
-                  Função e Permissão
+              {isSelf ? (
+                <Text className="px-1 text-[11px] text-on-surface-variant">
+                  Você não pode alterar a própria função nem o próprio status.
                 </Text>
-                <View className="flex-row flex-wrap gap-2">
-                  <Chip
-                    mode="flat"
-                    selected={role === 'worker'}
-                    onPress={() => setRole('worker')}
-                    style={{
-                      backgroundColor:
-                        role === 'worker' ? '#0F2042' : '#ECEFF0',
-                      borderRadius: 12,
-                    }}
-                    textStyle={{
-                      color: role === 'worker' ? '#FFFFFF' : '#45464E',
-                      fontWeight: '600',
-                      fontSize: 12,
-                    }}
-                  >
-                    Funcionário (Worker)
-                  </Chip>
-                  <Chip
-                    mode="flat"
-                    selected={role === 'admin'}
-                    onPress={() => setRole('admin')}
-                    style={{
-                      backgroundColor:
-                        role === 'admin' ? '#0F2042' : '#ECEFF0',
-                      borderRadius: 12,
-                    }}
-                    textStyle={{
-                      color: role === 'admin' ? '#FFFFFF' : '#45464E',
-                      fontWeight: '600',
-                      fontSize: 12,
-                    }}
-                  >
-                    Administrador (Admin)
-                  </Chip>
+              ) : (
+                <View className="gap-1">
+                  <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
+                    Função e Permissão
+                  </Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    <Chip
+                      mode="flat"
+                      selected={role === 'worker'}
+                      onPress={() => setRole('worker')}
+                      style={{
+                        backgroundColor:
+                          role === 'worker' ? '#0F2042' : '#ECEFF0',
+                        borderRadius: 12,
+                      }}
+                      textStyle={{
+                        color: role === 'worker' ? '#FFFFFF' : '#45464E',
+                        fontWeight: '600',
+                        fontSize: 12,
+                      }}
+                    >
+                      Funcionário (Worker)
+                    </Chip>
+                    <Chip
+                      mode="flat"
+                      selected={role === 'admin'}
+                      onPress={() => setRole('admin')}
+                      style={{
+                        backgroundColor:
+                          role === 'admin' ? '#0F2042' : '#ECEFF0',
+                        borderRadius: 12,
+                      }}
+                      textStyle={{
+                        color: role === 'admin' ? '#FFFFFF' : '#45464E',
+                        fontWeight: '600',
+                        fontSize: 12,
+                      }}
+                    >
+                      Administrador (Admin)
+                    </Chip>
+                  </View>
                 </View>
-              </View>
+              )}
 
               {/* Atualização de status quando estiver editando um funcionário */}
-              {isEditing && !editingMember?.isInvite ? (
+              {isActiveMember && !isSelf ? (
                 <View className="gap-1">
                   <Text className="px-1 text-[11px] font-medium text-on-surface-variant">
                     Status do Vínculo
