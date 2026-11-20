@@ -9,6 +9,7 @@ import {
 import { ProfileRow, ProfileSection } from '@/components/profile-section';
 import { ScreenHeader } from '@/components/screen-header';
 import { useAuth } from '@/hooks/auth-context';
+import { useTasks } from '@/hooks/tasks-context';
 import { useProfilePhoto } from '@/hooks/use-profile-photo';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack, useRouter } from 'expo-router';
@@ -22,6 +23,11 @@ const CHEVRON = (
 
 export default function MyProfileScreen() {
   const { profile, company, signOut } = useAuth();
+  const {
+    tasks,
+    loading: tasksLoading,
+    error: tasksError,
+  } = useTasks();
   const {
     uploading: photoUploading,
     progress: photoUploadProgress,
@@ -38,6 +44,23 @@ export default function MyProfileScreen() {
 
   const companyDisplayName =
     company?.companyName || profile?.companyName || 'Empresa';
+  const completedTasks = tasks.filter((task) => task.completedAt);
+  const completion =
+    tasks.length === 0
+      ? 0
+      : Math.round((completedTasks.length / tasks.length) * 100);
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const deliveredThisMonth = completedTasks.filter((task) => {
+    if (!task.completedAt) return false;
+    const completedAt = new Date(task.completedAt);
+    return (
+      !Number.isNaN(completedAt.getTime()) &&
+      completedAt >= monthStart &&
+      completedAt < nextMonthStart
+    );
+  }).length;
   const roleDisplay = profile?.sector
     ? `${profile.jobTitle} • ${profile.sector}`
     : (profile?.jobTitle ?? 'Colaborador');
@@ -74,11 +97,13 @@ export default function MyProfileScreen() {
         />
 
         <ProfileMetrics
-          completion={94}
-          delivered={48}
+          completion={completion}
+          delivered={deliveredThisMonth}
           deliveredSuffix="mês"
           shiftLabel="Turno A"
           shiftHours="08h – 18h"
+          loading={tasksLoading}
+          error={tasksError}
         />
 
         <ProfileSection title="Preferências do App">
