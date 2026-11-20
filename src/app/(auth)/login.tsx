@@ -1,59 +1,90 @@
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { Stack, useRouter } from "expo-router";
-import { useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { Checkbox } from "react-native-paper";
+import { useAuth } from '@/hooks/auth-context';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Checkbox } from 'react-native-paper';
 
-type Role = "admin" | "worker";
-
-type DemoAccount = {
-  email: string;
-  initials: string;
-  name: string;
-  detail: string;
-  label: string;
-};
-
-const DEMO_ACCOUNTS: Record<Role, DemoAccount> = {
-  admin: {
-    email: "joaopedro@dubaisoftwarehouse.com.br",
-    initials: "JP",
-    name: "João Pedro",
-    detail: "Dubai Software House",
-    label: "Admin",
-  },
-  worker: {
-    email: "jonas@dubaisoftwarehouse.com.br",
-    initials: "JF",
-    name: "Jonas Francisco",
-    detail: "Turno Manhã - Ativo",
-    label: "Operação",
-  },
-};
+type Role = 'admin' | 'worker';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [role, setRole] = useState<Role>("admin");
-  const [email, setEmail] = useState(DEMO_ACCOUNTS.admin.email);
-  const [password, setPassword] = useState("empresa2024@segura");
+  const { signIn, resetPassword } = useAuth();
+  const [role, setRole] = useState<Role>('admin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
 
-  function fillDemo(nextRole: Role) {
-    setRole(nextRole);
-    setEmail(DEMO_ACCOUNTS[nextRole].email);
-    setPassword("12345678");
+  // Autentica o usuário no Firebase e redireciona de acordo com a função (admin ou worker)
+  async function handleLogin() {
+    setError('');
+    setInfo('');
+
+    if (!email.trim() || !password) {
+      setError('Informe seu e-mail corporativo e senha.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const memberProfile = await signIn(email, password);
+
+      if (memberProfile.role === 'admin') {
+        router.replace('/(app)/(gestor)/home');
+      } else {
+        router.replace('/(app)/(worker)/task');
+      }
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (
+        code === 'auth/invalid-credential' ||
+        code === 'auth/user-not-found' ||
+        code === 'auth/wrong-password'
+      ) {
+        setError('E-mail ou senha incorretos.');
+      } else {
+        setError(
+          (err as { message?: string })?.message ??
+            'Não foi possível acessar sua conta.'
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function handleLogin() {
-    const isManager =
-      role === "admin" ||
-      email.trim().toLowerCase() === DEMO_ACCOUNTS.admin.email.toLowerCase();
+  // Envia o link de redefinição de senha para o e-mail informado no campo
+  async function handleForgotPassword() {
+    setError('');
+    setInfo('');
 
-    if (isManager) {
-      router.replace("/(app)/(gestor)/home");
-    } else {
-      router.replace("/(app)/(worker)/task");
+    if (!email.trim()) {
+      setError('Digite seu e-mail corporativo para recuperar a senha.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await resetPassword(email);
+      // Mensagem neutra: o Firebase não revela se o e-mail está cadastrado
+      setInfo(
+        'Se este e-mail estiver cadastrado, você receberá um link para redefinir a senha.'
+      );
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === 'auth/invalid-email') {
+        setError('E-mail inválido.');
+      } else if (code === 'auth/too-many-requests') {
+        setError('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
+      } else {
+        setError('Não foi possível enviar o e-mail de recuperação.');
+      }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -85,16 +116,16 @@ export default function LoginScreen() {
 
           <View className="mb-6 flex-row rounded-xl bg-primary-soft p-1">
             <RoleButton
-              active={role === "admin"}
+              active={role === 'admin'}
               icon="shield-account-outline"
               label="Administrador"
-              onPress={() => setRole("admin")}
+              onPress={() => setRole('admin')}
             />
             <RoleButton
-              active={role === "worker"}
+              active={role === 'worker'}
               icon="badge-account-outline"
               label="Funcionário"
-              onPress={() => setRole("worker")}
+              onPress={() => setRole('worker')}
             />
           </View>
 
@@ -124,13 +155,13 @@ export default function LoginScreen() {
               />
               <Pressable
                 accessibilityLabel={
-                  showPassword ? "Ocultar senha" : "Mostrar senha"
+                  showPassword ? 'Ocultar senha' : 'Mostrar senha'
                 }
                 className="h-10 w-10 items-center justify-center rounded-lg"
                 onPress={() => setShowPassword((visible) => !visible)}
               >
                 <MaterialCommunityIcons
-                  name={showPassword ? "eye-outline" : "eye-off-outline"}
+                  name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                   size={20}
                   color="#45464E"
                 />
@@ -144,26 +175,35 @@ export default function LoginScreen() {
               >
                 <Checkbox
                   color="#0F2042"
-                  status={remember ? "checked" : "unchecked"}
+                  status={remember ? 'checked' : 'unchecked'}
                   onPress={() => setRemember((value) => !value)}
                 />
                 <Text className="-ml-1 text-xs text-on-surface-variant">
                   Lembrar neste aparelho
                 </Text>
               </Pressable>
-              <Pressable onPress={() => {}}>
+              <Pressable disabled={loading} onPress={handleForgotPassword}>
                 <Text className="text-xs font-semibold text-primary">
                   Esqueceu a senha?
                 </Text>
               </Pressable>
             </View>
 
+            {error ? (
+              <Text className="px-1 text-xs text-error">{error}</Text>
+            ) : null}
+
+            {info ? (
+              <Text className="px-1 text-xs text-success">{info}</Text>
+            ) : null}
+
             <Pressable
               className="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-primary active:opacity-80"
+              disabled={loading}
               onPress={handleLogin}
             >
               <Text className="text-sm font-semibold text-white">
-                Entrar na conta
+                {loading ? 'Entrando...' : 'Entrar na conta'}
               </Text>
               <MaterialCommunityIcons
                 name="arrow-right"
@@ -176,63 +216,45 @@ export default function LoginScreen() {
           <View className="my-6 flex-row items-center">
             <View className="h-px flex-1 bg-slate-200" />
             <Text className="px-3 text-[10px] font-semibold tracking-wider text-outline">
-              ACESSO RÁPIDO
+              CONVITE DE EQUIPE
             </Text>
             <View className="h-px flex-1 bg-slate-200" />
           </View>
 
-          <View className="gap-2">
-            {(Object.keys(DEMO_ACCOUNTS) as Role[]).map((accountRole) => {
-              const account = DEMO_ACCOUNTS[accountRole];
-              return (
-                <Pressable
-                  key={accountRole}
-                  className="flex-row items-center justify-between rounded-xl border border-slate-100 bg-surface-lowest p-3 active:bg-primary-soft"
-                  onPress={() => fillDemo(accountRole)}
-                >
-                  <View className="min-w-0 flex-1 flex-row items-center gap-3">
-                    <View className="h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-primary-soft">
-                      <Text className="text-xs font-bold text-primary">
-                        {account.initials}
-                      </Text>
-                    </View>
-                    <View className="min-w-0 flex-1">
-                      <View className="flex-row items-center gap-2">
-                        <Text
-                          className="flex-1 text-sm font-semibold text-on-surface"
-                          numberOfLines={1}
-                        >
-                          {account.name}
-                        </Text>
-                        <View className="rounded-full bg-primary-soft px-2 py-0.5">
-                          <Text className="text-[10px] font-semibold text-primary">
-                            {account.label}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text
-                        className="text-xs text-on-surface-variant"
-                        numberOfLines={1}
-                      >
-                        {account.detail}
-                      </Text>
-                    </View>
-                  </View>
-                  <MaterialCommunityIcons
-                    name="gesture-tap"
-                    size={18}
-                    color="#75777F"
-                  />
-                </Pressable>
-              );
-            })}
-          </View>
+          {/* Atalho para funcionários que receberam código ou link de convite */}
+          <Pressable
+            className="flex-row items-center justify-between rounded-xl border border-slate-100 bg-surface-lowest p-3.5 active:bg-primary-soft"
+            onPress={() => router.push('/join')}
+          >
+            <View className="min-w-0 flex-1 flex-row items-center gap-3">
+              <View className="h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-primary-soft">
+                <MaterialCommunityIcons
+                  name="ticket-confirmation-outline"
+                  size={20}
+                  color="#0F2042"
+                />
+              </View>
+              <View className="min-w-0 flex-1">
+                <Text className="text-sm font-semibold text-on-surface">
+                  Entrar com código de convite
+                </Text>
+                <Text className="text-xs text-on-surface-variant">
+                  Vincule-se à empresa usando o código enviado pelo gestor
+                </Text>
+              </View>
+            </View>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color="#75777F"
+            />
+          </Pressable>
 
           <View className="mt-6 items-center">
             <Text className="text-xs text-on-surface-variant">
               Não tem uma conta corporativa?
             </Text>
-            <Pressable onPress={() => router.replace("/signup")}>
+            <Pressable onPress={() => router.replace('/signup')}>
               <Text className="mt-0.5 text-xs font-semibold text-primary">
                 Cadastre sua empresa
               </Text>
@@ -257,16 +279,16 @@ function RoleButton({
 }) {
   return (
     <Pressable
-      className={`min-h-10 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg ${active ? "bg-primary shadow-sm" : ""}`}
+      className={`min-h-10 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg ${active ? 'bg-primary shadow-sm' : ''}`}
       onPress={onPress}
     >
       <MaterialCommunityIcons
         name={icon}
         size={18}
-        color={active ? "#FFFFFF" : "#45464E"}
+        color={active ? '#FFFFFF' : '#45464E'}
       />
       <Text
-        className={`text-xs ${active ? "font-semibold text-white" : "font-medium text-on-surface-variant"}`}
+        className={`text-xs ${active ? 'font-semibold text-white' : 'font-medium text-on-surface-variant'}`}
       >
         {label}
       </Text>

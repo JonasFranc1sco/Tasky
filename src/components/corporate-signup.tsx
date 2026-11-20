@@ -19,6 +19,7 @@ import {
   type AdminSignupValues,
   type CompanySignupValues,
 } from "@/constants/signup-validation";
+import { CompanyService } from "@/services/company-service";
 
 type Icon = keyof typeof MaterialCommunityIcons.glyphMap;
 type FieldConfig = {
@@ -203,6 +204,7 @@ export function CorporateSignup() {
   const [step, setStep] = useState<1 | 2>(1);
   const [terms, setTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
 
@@ -247,8 +249,10 @@ export function CorporateSignup() {
     setStep(2);
   };
 
-  const finish = () => {
+  // Conclui o cadastro registrando empresa e administrador no Firebase
+  const finish = async () => {
     setError("");
+    setStatus("");
 
     if (!isAdminFormValid(admin)) {
       setError("Confira os dados e use uma senha com 8 caracteres.");
@@ -260,8 +264,24 @@ export function CorporateSignup() {
       return;
     }
 
-    setStatus("Cadastro concluído com sucesso.");
-    router.replace("/login");
+    try {
+      setSubmitting(true);
+      await CompanyService.registerCompanyWithAdmin(company, admin);
+      setStatus("Cadastro concluído com sucesso.");
+      router.replace("/(app)/(gestor)/home");
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === "auth/email-already-in-use") {
+        setError("Este e-mail já está cadastrado.");
+      } else {
+        setError(
+          (err as { message?: string })?.message ??
+            "Não foi possível concluir o cadastro no Firebase."
+        );
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const goBack = () => {
@@ -271,7 +291,11 @@ export function CorporateSignup() {
       return;
     }
 
-    router.canGoBack() ? router.back() : router.replace("/login");
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/login");
+    }
   };
 
   const values = step === 1 ? company : admin;
@@ -392,10 +416,15 @@ export function CorporateSignup() {
 
           <Pressable
             onPress={step === 1 ? next : finish}
+            disabled={submitting}
             className="mt-4 min-h-[46px] flex-row items-center justify-center gap-2 rounded-xl bg-primary"
           >
             <Text className="text-[11px] font-extrabold text-white">
-              {step === 1 ? "Cadastrar Empresa" : "Concluir"}
+              {submitting
+                ? "Cadastrando..."
+                : step === 1
+                  ? "Cadastrar Empresa"
+                  : "Concluir"}
             </Text>
             <MaterialCommunityIcons
               name="arrow-right"

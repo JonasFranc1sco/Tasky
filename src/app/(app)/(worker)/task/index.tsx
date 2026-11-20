@@ -1,7 +1,7 @@
 import { ScreenHeader } from '@/components/screen-header';
 import { TaskCard } from '@/components/task-card';
 import { WeeklyGoalCard } from '@/components/weekly-goal-card';
-import { CURRENT_EMPLOYEE } from '@/constants/tasks';
+import { useAuth } from '@/hooks/auth-context';
 import { useTasks } from '@/hooks/tasks-context';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -10,6 +10,7 @@ import { SegmentedButtons } from 'react-native-paper';
 
 export default function TaskQueueScreen() {
     const router = useRouter();
+    const { profile } = useAuth();
     const { tasks, completeTask } = useTasks();
     const [tab, setTab] = useState<'pending' | 'completed'>('pending');
 
@@ -29,7 +30,9 @@ export default function TaskQueueScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 12 }}
         ListHeaderComponent={
           <>
-            <Text className="text-xl font-bold text-on-surface">Olá, {CURRENT_EMPLOYEE}</Text>
+            <Text className="text-xl font-bold text-on-surface">
+              Olá, {profile?.name ?? 'Colaborador'}
+            </Text>
 
             <SegmentedButtons
               value={tab}
