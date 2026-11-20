@@ -270,6 +270,7 @@ export class TeamService {
       sector: finalSector,
       role: finalRole,
       status: 'active',
+      inviteId: pendingInvite?.id ?? null,
       employeeCode:
         finalRole === 'admin' ? `#ADM-${randomCode}` : `#EMP-${randomCode}`,
       pendingTasks: 0,
