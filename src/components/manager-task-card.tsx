@@ -10,6 +10,7 @@ export type ManagerTask = {
   time: string;
   status: 'pending' | 'completed';
   category?: string;
+  sector?: string;
 };
 
 type Props = {

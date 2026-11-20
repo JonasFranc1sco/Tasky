@@ -52,6 +52,7 @@ export default function GestorHomeScreen() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [employeeFilter, setEmployeeFilter] = useState('all');
+  const [sectorFilter, setSectorFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [tasks, setTasks] = useState<ManagerTask[]>(INITIAL_TASKS);
   const [delegateVisible, setDelegateVisible] = useState(false);
@@ -62,30 +63,39 @@ export default function GestorHomeScreen() {
 
   const managerDisplayName = profile?.name || 'Gestor';
 
+  const sectors = [
+  ...new Set(
+    tasks
+      .map((task) => task.sector)
+      .filter((sector): sector is string => Boolean(sector))
+  ),
+];
+
   const filteredTasks = tasks.filter((task) => {
-  const matchesStatus =
-    filter === 'all' || task.status === filter;
+  const matchesStatus = filter === 'all' || task.status === filter;
 
   const matchesSearch = task.title
     .toLowerCase()
     .includes(searchQuery.trim().toLowerCase());
 
   const matchesPriority =
-    priorityFilter === 'all' ||
-    task.category === priorityFilter;
+    priorityFilter === 'all' || task.category === priorityFilter;
 
   const matchesEmployee =
-    employeeFilter === 'all' ||
-    task.assignee === employeeFilter;
+    employeeFilter === 'all' || task.assignee === employeeFilter;
+
+  const matchesSector =
+    sectorFilter === 'all' || task.sector === sectorFilter;
 
   return (
     matchesStatus &&
     matchesSearch &&
     matchesPriority &&
-    matchesEmployee
+    matchesEmployee &&
+    matchesSector
   );
 });
-  const handleDelegate = (payload: DelegationPayload) => {
+  function handleDelegate(payload: DelegationPayload) {
     setTasks((prev) => [
       {
         id: `-${Date.now()}`,
@@ -95,11 +105,12 @@ export default function GestorHomeScreen() {
         time: payload.dueDate,
         status: 'pending',
         category: payload.priority,
+        sector: payload.sector,
       },
       ...prev,
     ]);
     setDelegateVisible(false);
-  };
+  }
 
   return (
     <View className="flex-1 bg-surface">
@@ -189,6 +200,33 @@ export default function GestorHomeScreen() {
   className="mt-2"
   contentContainerStyle={{ gap: 8 }}
 >
+  <Text className="mt-4 text-sm font-semibold text-on-surface">
+  Filtrar por setor
+</Text>
+
+<ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  className="mt-2"
+  contentContainerStyle={{ gap: 8 }}
+>
+  <Chip
+    selected={sectorFilter === 'all'}
+    onPress={() => setSectorFilter('all')}
+  >
+    Todos os setores
+  </Chip>
+
+  {sectors.map((sector) => (
+    <Chip
+      key={sector}
+      selected={sectorFilter === sector}
+      onPress={() => setSectorFilter(sector)}
+    >
+      {sector}
+    </Chip>
+  ))}
+</ScrollView>
   <Chip
     selected={employeeFilter === 'all'}
     onPress={() => setEmployeeFilter('all')}
