@@ -173,34 +173,42 @@ export default function GestorHomeScreen() {
 
   const managerDisplayName = profile?.name || 'Gestor';
 
-const sectors = [
-  ...new Set(
-    tasks
-      .map((task) => task.sector)
-      .filter((sector): sector is string => Boolean(sector))
-  ),
-];
+
 
 const filteredTasks = tasks.filter((task) => {
+  // Filtro por status
   const matchesStatus =
     filter === 'all' ||
     (filter === 'archived'
       ? !!task.archivedAt
       : task.status === filter);
 
-    const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
-    const matchesSearch = [
-      task.title,
-      task.description,
-      task.assignee,
-      task.sector ?? '',
-    ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
+  // Pesquisa
+  const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
 
-    const matchesEmployee =
-      employeeFilter === 'all' || task.assignee === employeeFilter;
+  const matchesSearch = [
+    task.title,
+    task.description,
+    task.assignee,
+    task.sector ?? '',
+  ].some((value) =>
+    (value ?? '').toLocaleLowerCase().includes(normalizedQuery)
+  );
 
-    const matchesSector =
-      sectorFilter === 'all' || task.sector === sectorFilter;
+  // Filtro por prioridade
+  const matchesPriority =
+    priorityFilter === 'all' ||
+    task.category === priorityFilter;
+
+  // Filtro por funcionário
+  const matchesEmployee =
+    employeeFilter === 'all' ||
+    task.assignee === employeeFilter;
+
+  // Filtro por setor
+  const matchesSector =
+    sectorFilter === 'all' ||
+    task.sector === sectorFilter;
 
   return (
     matchesStatus &&
@@ -297,7 +305,7 @@ const activeFiltersCount = [
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList
-        data={filteredTasks}
+        data={sortedTasks}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 12 }}
         showsVerticalScrollIndicator={false}
@@ -464,126 +472,236 @@ const activeFiltersCount = [
               borderRadius: 12,
             }}
             inputStyle={{ fontSize: 14 }}
-          />
 
-          {employees.map((employee) => (
-            <Chip
-              key={employee}
-              selected={employeeFilter === employee}
-              onPress={() => setEmployeeFilter(employee)}
-            >
-              {employee}
-            </Chip>
-          ))}
-        </ScrollView>
+/>
+  
+ 
+{/* FILTRO POR FUNCIONÁRIO */}
+<View className="mt-4">
+  <Text className="mb-2 text-sm font-semibold text-on-surface">
+    Filtrar por funcionário
+  </Text>
 
-        <View className="mt-3 flex-row flex-wrap gap-2">
-          {[
-            { label: 'Todas prioridades', value: 'all' },
-            { label: 'Alta', value: 'Alta Prioridade' },
-            { label: 'Rotina', value: 'Rotina' },
-            { label: 'Baixa', value: 'Baixa' },
-          ].map((item) => (
-            <Chip
-              key={item.value}
-              selected={priorityFilter === item.value}
-              onPress={() => setPriorityFilter(item.value)}
-              style={{
-                backgroundColor:
-                  priorityFilter === item.value ? '#0F2042' : '#ECEFF0',
-                borderRadius: 12,
-              }}
-              textStyle={{
-                color:
-                  priorityFilter === item.value ? '#FFFFFF' : '#45464E',
-                fontSize: 12,
-              }}
-            >
-              {item.label}
-            </Chip>
-          ))}
-        </View>
+  <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    contentContainerStyle={{ gap: 8 }}
+  >
+    <Chip
+      selected={employeeFilter === 'all'}
+      showSelectedCheck={employeeFilter === 'all'}
+      onPress={() => setEmployeeFilter('all')}
+      style={{
+        backgroundColor: employeeFilter === 'all' ? '#0F2042' : '#ECEFF0',
+        borderRadius: 12,
+      }}
+      textStyle={{
+        color: employeeFilter === 'all' ? '#FFFFFF' : '#45464E',
+        fontSize: 12,
+      }}
+    >
+      Todos
+    </Chip>
 
-        <Text className="mt-4 text-sm font-semibold text-on-surface">
-          Ordenar por prazo
-        </Text>
+    {employees.map((employee) => (
+      <Chip
+        key={employee}
+        selected={employeeFilter === employee}
+        showSelectedCheck={employeeFilter === employee}
+        onPress={() => setEmployeeFilter(employee)}
+        style={{
+          backgroundColor:
+            employeeFilter === employee ? '#0F2042' : '#ECEFF0',
+          borderRadius: 12,
+        }}
+        textStyle={{
+          color: employeeFilter === employee ? '#FFFFFF' : '#45464E',
+          fontSize: 12,
+        }}
+      >
+        {employee}
+      </Chip>
+    ))}
+  </ScrollView>
+</View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mt-2"
-          contentContainerStyle={{ gap: 8 }}
+{/* FILTRO POR SETOR */}
+<View className="mt-4">
+  <Text className="mb-2 text-sm font-semibold text-on-surface">
+    Filtrar por setor
+  </Text>
+
+  <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    contentContainerStyle={{ gap: 8 }}
+  >
+    <Chip
+      selected={sectorFilter === 'all'}
+      showSelectedCheck={sectorFilter === 'all'}
+      onPress={() => setSectorFilter('all')}
+      style={{
+        backgroundColor: sectorFilter === 'all' ? '#0F2042' : '#ECEFF0',
+        borderRadius: 12,
+      }}
+      textStyle={{
+        color: sectorFilter === 'all' ? '#FFFFFF' : '#45464E',
+        fontSize: 12,
+      }}
+    >
+      Todos os setores
+    </Chip>
+
+    {sectors.map((sector) => (
+      <Chip
+        key={sector}
+        selected={sectorFilter === sector}
+        showSelectedCheck={sectorFilter === sector}
+        onPress={() => setSectorFilter(sector)}
+        style={{
+          backgroundColor:
+            sectorFilter === sector ? '#0F2042' : '#ECEFF0',
+          borderRadius: 12,
+        }}
+        textStyle={{
+          color: sectorFilter === sector ? '#FFFFFF' : '#45464E',
+          fontSize: 12,
+        }}
+      >
+        {sector}
+      </Chip>
+    ))}
+  </ScrollView>
+</View>
+
+{/* FILTRO POR PRIORIDADE */}
+<View className="mt-4">
+  <Text className="mb-2 text-sm font-semibold text-on-surface">
+    Filtrar por prioridade
+  </Text>
+
+  <View className="flex-row flex-wrap gap-2">
+    {[
+      { label: 'Todas', value: 'all' },
+      { label: 'Alta', value: 'Alta Prioridade' },
+      { label: 'Rotina', value: 'Rotina' },
+      { label: 'Baixa', value: 'Baixa' },
+    ].map((item) => {
+      const selected = priorityFilter === item.value;
+
+      return (
+        <Chip
+          key={item.value}
+          selected={selected}
+          showSelectedCheck={selected}
+          onPress={() => setPriorityFilter(item.value)}
+          style={{
+            backgroundColor: selected ? '#0F2042' : '#ECEFF0',
+            borderRadius: 12,
+          }}
+          textStyle={{
+            color: selected ? '#FFFFFF' : '#45464E',
+            fontSize: 12,
+          }}
         >
-          <Chip
-            selected={dateSort === 'default'}
-            onPress={() => setDateSort('default')}
-          >
-            Padrão
-          </Chip>
+          {item.label}
+        </Chip>
+      );
+    })}
+  </View>
+</View>
 
-          <Chip
-            selected={dateSort === 'asc'}
-            onPress={() => {
-              setDateSort('asc');
+{/* ORDENAÇÃO POR PRAZO */}
+<View className="mt-4">
+  <Text className="mb-2 text-sm font-semibold text-on-surface">
+    Ordenar por prazo
+  </Text>
+
+  <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    contentContainerStyle={{ gap: 8 }}
+  >
+    {[
+      { label: 'Padrão', value: 'default' },
+      { label: 'Mais próximas', value: 'asc' },
+      { label: 'Mais distantes', value: 'desc' },
+    ].map((item) => {
+      const selected = dateSort === item.value;
+
+      return (
+        <Chip
+          key={item.value}
+          selected={selected}
+          showSelectedCheck={selected}
+          onPress={() => {
+            setDateSort(item.value as typeof dateSort);
+            if (item.value !== 'default') {
               setAlphabeticalSort('default');
-            }}
-          >
-            Mais próximas
-          </Chip>
-
-          <Chip
-            selected={dateSort === 'desc'}
-            onPress={() => {
-              setDateSort('desc');
-              setAlphabeticalSort('default');
-            }}
-          >
-            Mais distantes
-          </Chip>
-        </ScrollView>
-
-        <Text className="mt-4 text-sm font-semibold text-on-surface">
-          Ordenar por título
-        </Text>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mt-2"
-          contentContainerStyle={{ gap: 8 }}
+            }
+          }}
+          style={{
+            backgroundColor: selected ? '#0F2042' : '#ECEFF0',
+            borderRadius: 12,
+          }}
+          textStyle={{
+            color: selected ? '#FFFFFF' : '#45464E',
+            fontSize: 12,
+          }}
         >
-          <Chip
-            selected={alphabeticalSort === 'default'}
-            onPress={() => setAlphabeticalSort('default')}
-          >
-            Padrão
-          </Chip>
+          {item.label}
+        </Chip>
+      );
+    })}
+  </ScrollView>
+</View>
 
-          <Chip
-            selected={alphabeticalSort === 'asc'}
-            onPress={() => {
-              setAlphabeticalSort('asc');
+{/* ORDENAÇÃO POR TÍTULO */}
+<View className="mt-4">
+  <Text className="mb-2 text-sm font-semibold text-on-surface">
+    Ordenar por título
+  </Text>
+
+  <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    contentContainerStyle={{ gap: 8 }}
+  >
+    {[
+      { label: 'Padrão', value: 'default' },
+      { label: 'A–Z', value: 'asc' },
+      { label: 'Z–A', value: 'desc' },
+    ].map((item) => {
+      const selected = alphabeticalSort === item.value;
+
+      return (
+        <Chip
+          key={item.value}
+          selected={selected}
+          showSelectedCheck={selected}
+          onPress={() => {
+            setAlphabeticalSort(item.value as typeof alphabeticalSort);
+            if (item.value !== 'default') {
               setDateSort('default');
-            }}
-          >
-            A–Z
-          </Chip>
+            }
+          }}
+          style={{
+            backgroundColor: selected ? '#0F2042' : '#ECEFF0',
+            borderRadius: 12,
+          }}
+          textStyle={{
+            color: selected ? '#FFFFFF' : '#45464E',
+            fontSize: 12,
+          }}
+        >
+          {item.label}
+        </Chip>
+      );
+    })}
+  </ScrollView>
+</View>
 
-          <Chip
-            selected={alphabeticalSort === 'desc'}
-            onPress={() => {
-              setAlphabeticalSort('desc');
-              setDateSort('default');
-            }}
-          >
-            Z–A
-          </Chip>
-        </ScrollView>
-
-        {/* Filtros de status */}
-        <Text className="mt-4 text-sm font-semibold text-on-surface">
-          Status
-        </Text>
+            {/* Chips de Filtro com Paper */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
