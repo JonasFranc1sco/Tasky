@@ -8,8 +8,45 @@ import { useAuth } from '@/hooks/auth-context';
 import { useTasks } from '@/hooks/tasks-context';
 import { Stack, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, FlatList, ScrollView, Text, View, useWindowDimensions, } from 'react-native';
 import { Button, Chip, FAB, Searchbar, Snackbar } from 'react-native-paper';
+
+// Dados definidos localmente no próprio arquivo (sem mock externo)
+const METRICS_DATA = {
+  total: 14,
+  pending: 6,
+  completed: 8,
+  completedPercentage: '57% concluído',
+};
+
+const INITIAL_TASKS: ManagerTask[] = [
+  {
+    id: '1',
+    title: 'Code Review do PR #482',
+    description: 'Revisar os arquivos alterados, validar a cobertura de testes e aprovar ou solicitar correções.',
+    assignee: 'Rafael Horeay',
+    time: 'Hoje, 17:00',
+    status: 'pending',
+    category: 'Alta Prioridade',
+  },
+  {
+    id: '2',
+    title: 'Configuração do Runner CI/CD',
+    description: 'Instalar o novo runner, definir tags de execução e revisar os workflows de deploy.',
+    assignee: 'Eduarda Najara',
+    time: 'Hoje, 11:30',
+    status: 'completed',
+  },
+  {
+    id: '3',
+    title: 'Auditoria de Cobertura de Testes',
+    description: 'Levantar a cobertura dos módulos críticos e gerar relatório para o Sprint.',
+    assignee: 'Kemily Freitas',
+    time: 'Amanhã, 18:00',
+    status: 'pending',
+    category: 'Rotina',
+  },
+];
 
 export default function GestorHomeScreen() {
   const router = useRouter();
@@ -21,6 +58,9 @@ export default function GestorHomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [employeeFilter, setEmployeeFilter] = useState('all');
   const [sectorFilter, setSectorFilter] = useState('all');
+ const [dateSort, setDateSort] = useState<
+  'default' | 'asc' | 'desc'
+>('default');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const {
     tasks: allTasks,
@@ -58,46 +98,42 @@ export default function GestorHomeScreen() {
     const matchesPriority =
       priorityFilter === 'all' || task.category === priorityFilter;
 
-    const matchesPriority =
-      priorityFilter === 'all' || task.category === priorityFilter;
-
     const matchesEmployee =
       employeeFilter === 'all' || task.assignee === employeeFilter;
 
     const matchesSector =
       sectorFilter === 'all' || task.sector === sectorFilter;
 
-    return (
-      matchesStatus &&
-      matchesSearch &&
-      matchesPriority &&
-      matchesEmployee &&
-      matchesSector
-    );
+  return (
+    matchesStatus &&
+    matchesSearch &&
+    matchesPriority &&
+    matchesEmployee &&
+    matchesSector
+  );
+});
+  const handleDelegate = async (payload: DelegationPayload) => {
+  await addTask({
+    name: payload.title,
+    description: payload.description,
+    assignee: {
+      name: payload.assignee.name,
+      uid: payload.assignee.uid,
+    },
+    dueDate: payload.dueDate,
+    sector: payload.sector,
+    priority:
+      payload.priority === 'Alta Prioridade'
+        ? 'alta'
+        : payload.priority === 'Baixa'
+          ? 'baixa'
+          : 'media',
+    category: payload.priority,
   });
 
-  const handleDelegate = async (payload: DelegationPayload) => {
-    await addTask({
-      name: payload.title,
-      description: payload.description,
-      assignee: {
-        name: payload.assignee.name,
-        uid: payload.assignee.uid,
-      },
-      dueDate: payload.dueDate,
-      sector: payload.sector,
-      priority:
-        payload.priority === 'Alta Prioridade'
-          ? 'alta'
-          : payload.priority === 'Baixa'
-            ? 'baixa'
-            : 'media',
-      category: payload.priority,
-    });
-
-    setDelegateVisible(false);
-    setSnackbarMessage('Tarefa delegada e sincronizada.');
-  };
+  setDelegateVisible(false);
+  setSnackbarMessage('Tarefa delegada e sincronizada.');
+};
 
   return (
     <View className="flex-1 bg-surface">
@@ -106,18 +142,7 @@ export default function GestorHomeScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList
-        key={numColumns}
-        style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}
         data={filteredTasks}
-        ListEmptyComponent={
-          <Text className="py-6 text-center text-sm text-on-surface-variant">
-            {tasksLoading
-              ? 'Sincronizando tarefas...'
-              : tasksError ?? 'Nenhuma tarefa cadastrada nesta empresa.'}
-          </Text>
-        }
-        numColumns={numColumns}
-        columnWrapperStyle={numColumns > 1 ? { gap: 12 } : undefined}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 12 }}
         showsVerticalScrollIndicator={false}
@@ -276,6 +301,37 @@ export default function GestorHomeScreen() {
       {item.label}
     </Chip>
   ))}
+  <Text className="mt-4 text-sm font-semibold text-on-surface">
+  Ordenar por prazo
+</Text>
+
+<ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  className="mt-2"
+  contentContainerStyle={{ gap: 8 }}
+>
+  <Chip
+    selected={dateSort === 'default'}
+    onPress={() => setDateSort('default')}
+  >
+    Padrão
+  </Chip>
+
+  <Chip
+    selected={dateSort === 'asc'}
+    onPress={() => setDateSort('asc')}
+  >
+    Mais próximas
+  </Chip>
+
+  <Chip
+    selected={dateSort === 'desc'}
+    onPress={() => setDateSort('desc')}
+  >
+    Mais distantes
+  </Chip>
+</ScrollView>
 </View>
             {/* Chips de Filtro com Paper */}
             <ScrollView
