@@ -18,8 +18,12 @@ export type Task = {
   createdAt: Timestamp | null;
   updatedAt: Timestamp | null;
   completedAt: Timestamp | null;
+  reopened: boolean;
   reopenedAt: Timestamp | null;
+  reopenReason?: string;
+  checklist?: { done: number; total: number; location: string };
   archivedAt: Timestamp | null;
+  deleting: boolean;
 };
 
 export type NewTask = Pick<Task, 'title' | 'description' | 'sector' | 'dueDate' | 'priority'>;

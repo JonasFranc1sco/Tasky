@@ -5,12 +5,15 @@ import {
   addDoc,
   collection,
   doc,
+  getDocsFromServer,
+  limit,
   onSnapshot,
   orderBy,
   query,
   runTransaction,
   serverTimestamp,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 
 export type TaskAccess = { uid: string; companyId: string; isAdmin: boolean };
@@ -23,11 +26,10 @@ const storedPriorities = {
 } as const satisfies Record<TaskPriority, string>;
 
 type StoredPriority = (typeof storedPriorities)[TaskPriority];
-type StoredTask = Omit<Task, 'id' | 'companyId' | 'title' | 'priority' | 'status' | 'reopenedAt'> & {
-  name: string;
-  category: string;
-  priority: StoredPriority;
-  status: 'pending' | 'completed';
+type StoredTask = Partial<Omit<Task, 'id' | 'companyId' | 'title' | 'priority' | 'status' | 'reopenedAt'>> & {
+  name?: string;
+  priority?: StoredPriority;
+  status?: 'pending' | 'completed';
 };
 
 const taskPriorities: Record<StoredPriority, TaskPriority> = {
@@ -40,27 +42,36 @@ function tasksCollection(companyId: string) {
   return collection(db, 'companies', companyId, 'tasks');
 }
 
+function storedTaskStatus(task: StoredTask) {
+  return task.status ?? (task.completedAt ? 'completed' : 'pending');
+}
+
 function toTask(companyId: string, taskId: string, data: StoredTask): Task {
-  const wasReopened = data.status === 'pending' && data.updatedAt && data.createdAt
+  const status = storedTaskStatus(data);
+  const wasReopened = status === 'pending' && data.updatedAt && data.createdAt
     && data.updatedAt.toMillis() > data.createdAt.toMillis();
 
   return {
     id: taskId,
     companyId,
-    assigneeUid: data.assigneeUid,
-    assigneeName: data.assigneeName,
-    createdByUid: data.createdByUid,
-    title: data.name,
-    description: data.description,
-    sector: data.sector,
-    dueDate: data.dueDate,
-    priority: taskPriorities[data.priority] ?? 'Rotina',
-    status: data.status === 'completed' && data.archivedAt ? 'archived' : data.status,
-    createdAt: data.createdAt,
-    updatedAt: data.updatedAt,
+    assigneeUid: data.assigneeUid ?? '',
+    assigneeName: data.assigneeName ?? 'Colaborador',
+    createdByUid: data.createdByUid ?? '',
+    title: data.name ?? '',
+    description: data.description ?? '',
+    sector: data.sector ?? '',
+    dueDate: data.dueDate ?? '',
+    priority: (data.priority && taskPriorities[data.priority]) ?? 'Rotina',
+    status: status === 'completed' && data.archivedAt ? 'archived' : status,
+    createdAt: data.createdAt ?? null,
+    updatedAt: data.updatedAt ?? null,
     completedAt: data.completedAt ?? null,
     archivedAt: data.archivedAt ?? null,
-    reopenedAt: wasReopened ? data.updatedAt : null,
+    reopened: status === 'pending' && (Boolean(wasReopened) || data.reopened === true),
+    reopenedAt: wasReopened ? data.updatedAt ?? null : null,
+    reopenReason: data.reopenReason,
+    checklist: data.checklist,
+    deleting: data.deleting === true,
   };
 }
 
@@ -116,10 +127,16 @@ export async function changeTaskStatus(access: TaskAccess, taskId: string, actio
     if (!task) {
       throw new Error('Tarefa não encontrada para sua empresa.');
     }
+    if (task.deleting) {
+      throw new Error('A tarefa está em processo de exclusão.');
+    }
+    const status = storedTaskStatus(task);
 
     if (action === 'complete') {
-      if (task.assigneeUid !== access.uid) throw new Error('Somente o responsável pode concluir a tarefa.');
-      if (task.status !== 'pending') return;
+      if (!access.isAdmin && task.assigneeUid !== access.uid) {
+        throw new Error('Somente o responsável ou um gestor pode concluir a tarefa.');
+      }
+      if (status !== 'pending') return;
       transaction.update(ref, {
         status: 'completed',
         completedAt: serverTimestamp(),
@@ -132,7 +149,9 @@ export async function changeTaskStatus(access: TaskAccess, taskId: string, actio
 
     if (action === 'archive') {
       if (task.archivedAt) return;
-      if (task.status !== 'completed') throw new Error('A tarefa precisa estar concluída para ser validada.');
+      if (status !== 'completed' || !task.completedAt) {
+        throw new Error('A tarefa precisa estar concluída para ser validada.');
+      }
       transaction.update(ref, {
         archivedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -140,13 +159,40 @@ export async function changeTaskStatus(access: TaskAccess, taskId: string, actio
       return;
     }
 
-    if (task.status === 'pending') return;
+    if (status === 'pending') return;
     transaction.update(ref, {
       status: 'pending',
       completedAt: null,
       ...(task.archivedAt ? { archivedAt: null } : {}),
       updatedAt: serverTimestamp(),
     });
+  });
+}
+
+export async function deleteTask(access: TaskAccess, taskId: string) {
+  if (!access.isAdmin) throw new Error('Apenas gestores podem excluir tarefas.');
+  const ref = doc(tasksCollection(access.companyId), taskId);
+
+  const exists = await runTransaction(db, async (transaction) => {
+    const task = await transaction.get(ref);
+    if (!task.exists()) return false;
+    // As regras bloqueiam novas observações a partir deste ponto, inclusive entre lotes.
+    if (!task.get('deleting')) transaction.update(ref, { deleting: true });
+    return true;
+  });
+  if (!exists) return;
+
+  const notes = query(notesCollection(access.companyId, taskId), limit(450));
+  let snapshot = await getDocsFromServer(notes);
+  while (!snapshot.empty) {
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((note) => batch.delete(note.ref));
+    await batch.commit();
+    snapshot = await getDocsFromServer(notes);
+  }
+
+  await runTransaction(db, async (transaction) => {
+    if ((await transaction.get(ref)).exists()) transaction.delete(ref);
   });
 }
 
@@ -169,11 +215,15 @@ export function subscribeToTaskNotes(
 }
 
 export async function addTaskNote(taskId: string, profile: EmployeeMember, content: string) {
+  const text = content.trim();
+  if (!text || text.length > 5000) {
+    throw new Error('A observação precisa ter entre 1 e 5000 caracteres.');
+  }
   await addDoc(notesCollection(profile.companyId, taskId), {
     authorUid: profile.uid,
     author: profile.name,
     role: profile.jobTitle,
-    content,
+    content: text,
     createdAt: serverTimestamp(),
   });
 }

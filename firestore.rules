@@ -4,6 +4,9 @@ rules_version = '2';
 // Documentação: docs/firestore.md
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ---------- Funções auxiliares ----------
+
     function signedIn() {
       return request.auth != null;
     }
@@ -16,16 +19,19 @@ service cloud.firestore {
       return /databases/$(database)/documents/users/$(uid);
     }
 
+    // Perfil do usuário logado em users/{uid}
     function me() {
       return get(userDoc(request.auth.uid)).data;
     }
 
+    // Usuário logado pertence à empresa
     function isMemberOf(companyId) {
       return signedIn()
         && exists(userDoc(request.auth.uid))
         && me().companyId == companyId;
     }
 
+    // Usuário logado é admin da empresa
     function isAdminOf(companyId) {
       return isMemberOf(companyId) && me().role == 'admin';
     }
@@ -35,9 +41,11 @@ service cloud.firestore {
     }
 
     function isActiveMemberOf(companyId) {
-      return isMemberOf(companyId) && me().get('status', 'active') == 'active';
+      return isMemberOf(companyId)
+        && me().get('status', 'active') == 'active';
     }
 
+    // Convite individual válido para entrar como admin
     function adminInviteMatches(inviteId) {
       let invitePath = /databases/$(database)/documents/invites/$(inviteId);
       return exists(invitePath)
@@ -52,8 +60,11 @@ service cloud.firestore {
       return inviteId is string && adminInviteMatches(inviteId);
     }
 
+    // ---------- users/{userId} ----------
+
     match /users/{userId} {
-      // Próprio perfil, busca por uid/e-mail próprios e membros da mesma empresa.
+      // Próprio perfil (mesmo antes de existir), busca por uid/e-mail próprios
+      // ou membros da mesma empresa
       allow read: if signedIn() && (
         userId == request.auth.uid
         || resource.data.uid == request.auth.uid
@@ -66,29 +77,51 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.role in ['admin', 'worker']
         && (
+          // Cadastro de empresa nova: admin de uma empresa que ainda não existe
           (request.resource.data.role == 'admin'
             && !companyExists(request.resource.data.companyId))
+          // Ingresso como worker em empresa existente (código ou convite)
           || (request.resource.data.role == 'worker'
             && companyExists(request.resource.data.companyId))
+          // Ingresso como admin por convite individual
           || (request.resource.data.role == 'admin' && validAdminInvite())
         );
 
       allow update: if signedIn() && (
+        // Próprio usuário: só dados pessoais (não muda role, empresa nem status)
         (userId == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['name', 'jobTitle', 'sector', 'companyName', 'updatedAt']))
+        // Próprio usuário sincroniza somente o e-mail já confirmado no Authentication
+        || (userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['email', 'updatedAt'])
+          && request.resource.data.email == request.auth.token.email)
+        // Admin da empresa: edita membros sem movê-los nem remover o próprio admin
         || (isAdminOf(resource.data.companyId)
-          && request.resource.data.companyId == resource.data.companyId)
+          && request.resource.data.companyId == resource.data.companyId
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'jobTitle', 'sector', 'role', 'status', 'updatedAt'])
+          && (userId != request.auth.uid
+            || (request.resource.data.role == resource.data.role
+              && request.resource.data.get('status', 'active')
+                == resource.data.get('status', 'active'))))
       );
 
-      allow delete: if isAdminOf(resource.data.companyId);
+      // Admin remove membros da empresa, mas não a si mesmo
+      allow delete: if isAdminOf(resource.data.companyId)
+        && userId != request.auth.uid;
     }
+
+    // ---------- companies/{companyId} ----------
 
     match /companies/{companyId} {
       allow get: if isMemberOf(companyId);
-      // Busca pelo código de convite na tela /join.
+
+      // Busca pelo código de convite da empresa (tela /join), sempre com limit(1)
       allow list: if signedIn() && request.query.limit <= 1;
 
+      // Criada logo após o perfil do admin (users/{uid}) com o mesmo companyId
       allow create: if signedIn()
         && request.resource.data.id == companyId
         && request.resource.data.ownerId == request.auth.uid
@@ -100,103 +133,148 @@ service cloud.firestore {
 
       allow delete: if false;
 
+      // ---------- tasks/{taskId} ----------
       match /tasks/{taskId} {
-        function canReadTask(task) {
+        function taskPath() {
+          return /databases/$(database)/documents/companies/$(companyId)/tasks/$(taskId);
+        }
+
+        function canReadTaskNotes() {
           return isActiveMemberOf(companyId)
-            && (isAdminOf(companyId) || task.assigneeUid == request.auth.uid);
+            && (isAdminOf(companyId)
+              || (exists(taskPath()) && get(taskPath()).data.assigneeUid == request.auth.uid));
         }
 
         function validTaskCreate() {
           let data = request.resource.data;
-          let fields = [
-            'name', 'description', 'dueDate', 'assigneeUid', 'assigneeName',
-            'sector', 'priority', 'category', 'status', 'completedAt', 'archivedAt',
-            'createdByUid', 'createdAt', 'updatedAt'
-          ];
-          let assigneePath = userDoc(data.assigneeUid);
-          return data.keys().hasAll(fields) && data.keys().hasOnly(fields)
-            && data.name is string && data.name.size() > 0 && data.name.size() <= 160
-            && data.description is string && data.description.size() <= 4000
-            && data.dueDate is string && data.dueDate.size() <= 100
+          let assigneePath = /databases/$(database)/documents/users/$(data.assigneeUid);
+          return data.keys().hasAll([
+              'name', 'description', 'dueDate', 'assigneeUid', 'assigneeName',
+              'sector', 'priority', 'category', 'status', 'completedAt', 'archivedAt',
+              'createdByUid', 'createdAt', 'updatedAt'
+            ])
+            && data.keys().hasOnly([
+              'name', 'description', 'dueDate', 'assigneeUid', 'assigneeName',
+              'sector', 'priority', 'category', 'status', 'completedAt', 'archivedAt',
+              'createdByUid', 'createdAt', 'updatedAt'
+            ])
+            && data.name is string
+            && data.name.size() > 0
+            && data.name.size() <= 160
+            && data.description is string
+            && data.description.size() <= 4000
+            && data.dueDate is string
+            && data.dueDate.size() <= 100
             && data.assigneeUid is string
-            && data.assigneeName is string && data.assigneeName.size() <= 120
-            && data.sector is string && data.sector.size() <= 120
+            && data.assigneeName is string
+            && data.assigneeName.size() <= 120
+            && data.sector is string
+            && data.sector.size() <= 120
             && data.priority in ['alta', 'media', 'baixa']
-            && data.category is string && data.category.size() <= 120
+            && data.category is string
+            && data.category.size() <= 120
             && data.status == 'pending'
-            && data.completedAt == null && data.archivedAt == null
+            && data.completedAt == null
+            && data.archivedAt == null
             && data.createdByUid == request.auth.uid
-            && data.createdAt == request.time && data.updatedAt == request.time
+            && data.createdAt == request.time
+            && data.updatedAt == request.time
             && exists(assigneePath)
             && get(assigneePath).data.companyId == companyId
             && get(assigneePath).data.get('status', 'active') == 'active'
             && get(assigneePath).data.name == data.assigneeName;
         }
 
-        function validTaskCompletion(before, after, changed) {
-          return before.status == 'pending' && after.status == 'completed'
-            && after.completedAt == request.time
-            && after.get('archivedAt', null) == null
-            && changed.hasOnly(['status', 'completedAt', 'updatedAt']);
+        function currentTaskStatus() {
+          let legacyStatus = resource.data.get('completedAt', null) == null ? 'pending' : 'completed';
+          return resource.data.get('status', legacyStatus);
         }
 
-        function validTaskArchive(before, after, changed) {
-          return before.status == 'completed'
-            && before.get('completedAt', null) != null
-            && before.get('archivedAt', null) == null
-            && after.get('archivedAt', null) == request.time
-            && changed.hasOnly(['archivedAt', 'updatedAt']);
+        function validTaskCompletion() {
+          return currentTaskStatus() == 'pending'
+            && request.resource.data.status == 'completed'
+            && request.resource.data.completedAt == request.time
+            && request.resource.data.get('archivedAt', null) == null
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'completedAt', 'updatedAt']);
         }
 
-        function validTaskReopen(before, after, changed) {
-          return before.status == 'completed' && after.status == 'pending'
-            && after.completedAt == null && after.get('archivedAt', null) == null
-            && changed.hasOnly(['status', 'completedAt', 'archivedAt', 'updatedAt']);
+        function validTaskArchive() {
+          let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
+          return affectedKeys.hasOnly(['archivedAt', 'updatedAt'])
+            && currentTaskStatus() == 'completed'
+            && resource.data.get('completedAt', null) != null
+            && resource.data.get('archivedAt', null) == null
+            && request.resource.data.archivedAt == request.time;
         }
 
-        function validTaskUpdate() {
-          let before = resource.data;
-          let after = request.resource.data;
-          let changed = after.diff(before).affectedKeys();
-          return after.updatedAt == request.time && (
-            (validTaskCompletion(before, after, changed)
-              && (isAdminOf(companyId) || before.assigneeUid == request.auth.uid))
-            || (isAdminOf(companyId)
-              && (validTaskArchive(before, after, changed)
-                || validTaskReopen(before, after, changed)))
-          );
+        function validAdminReopen() {
+          let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
+          return affectedKeys.hasOnly(['status', 'completedAt', 'archivedAt', 'updatedAt'])
+            && currentTaskStatus() == 'completed'
+            && request.resource.data.status == 'pending'
+            && request.resource.data.completedAt == null
+            && request.resource.data.get('archivedAt', null) == null;
         }
 
-        // A consulta do colaborador filtra assigneeUid pelo próprio UID.
-        allow get, list: if canReadTask(resource.data);
-        allow create: if isActiveMemberOf(companyId) && isAdminOf(companyId) && validTaskCreate();
-        allow update: if isActiveMemberOf(companyId) && validTaskUpdate();
-        allow delete: if false;
+        allow get: if isActiveMemberOf(companyId)
+          && (isAdminOf(companyId)
+            || resource.data.get('assigneeUid', null) == request.auth.uid);
 
+        // Consultas de colaboradores precisam filtrar assigneeUid pelo próprio UID.
+        allow list: if isActiveMemberOf(companyId)
+          && (isAdminOf(companyId)
+            || resource.data.get('assigneeUid', null) == request.auth.uid);
+
+        allow create: if isAdminOf(companyId)
+          && isActiveMemberOf(companyId)
+          && validTaskCreate();
+
+        allow update: if isActiveMemberOf(companyId)
+          && resource.data.get('deleting', false) == false
+          && ((isAdminOf(companyId)
+              && request.resource.data.get('deleting', false) == true
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deleting']))
+            || (request.resource.data.updatedAt == request.time
+              && ((validTaskCompletion()
+                  && (isAdminOf(companyId) || resource.data.assigneeUid == request.auth.uid))
+                || (isAdminOf(companyId) && (validTaskArchive() || validAdminReopen())))));
+
+        allow delete: if isActiveMemberOf(companyId) && isAdminOf(companyId);
+
+        // ---------- tasks/{taskId}/messages/{messageId} ----------
         match /messages/{messageId} {
-          function parentTask() {
-            return get(/databases/$(database)/documents/companies/$(companyId)/tasks/$(taskId)).data;
-          }
-
           function validNoteCreate() {
             let data = request.resource.data;
-            let fields = ['author', 'authorUid', 'role', 'content', 'createdAt'];
-            return data.keys().hasAll(fields) && data.keys().hasOnly(fields)
-              && data.author is string && data.author == me().name
+            return data.keys().hasAll(['author', 'authorUid', 'role', 'content', 'createdAt'])
+              && data.keys().hasOnly(['author', 'authorUid', 'role', 'content', 'createdAt'])
+              && data.author is string
+              && data.author == me().name
               && data.authorUid == request.auth.uid
-              && data.role is string && data.role == me().jobTitle
-              && data.content is string && data.content.size() > 0 && data.content.size() <= 5000
+              && data.role is string
+              && data.role == me().jobTitle
+              && data.content is string
+              && data.content.size() > 0
+              && data.content.size() <= 5000
               && data.createdAt == request.time;
           }
 
-          allow get, list: if canReadTask(parentTask());
-          allow create: if canReadTask(parentTask())
+          allow get, list: if canReadTaskNotes();
+
+          // Apenas gestor registra notas; o colaborador responsável pode lê-las.
+          allow create: if isActiveMemberOf(companyId)
             && isAdminOf(companyId)
+            && existsAfter(taskPath())
+            && getAfter(taskPath()).data.get('deleting', false) == false
             && validNoteCreate();
-          allow update, delete: if false;
+
+          allow update: if false;
+          allow delete: if isActiveMemberOf(companyId) && isAdminOf(companyId);
         }
       }
     }
+
+    // ---------- invites/{inviteId} ----------
 
     match /invites/{inviteId} {
       allow get: if signedIn() && (
@@ -204,7 +282,7 @@ service cloud.firestore {
         || isMemberOf(resource.data.companyId)
       );
 
-      // Membros listam convites da empresa e a tela /join busca código com limit(5).
+      // Membros listam os convites da empresa; a tela /join busca por código com limit(5)
       allow list: if signedIn() && (
         isMemberOf(resource.data.companyId)
         || request.query.limit <= 5
@@ -216,6 +294,7 @@ service cloud.firestore {
       allow update: if signedIn() && (
         (isAdminOf(resource.data.companyId)
           && request.resource.data.companyId == resource.data.companyId)
+        // Convidado marca o próprio convite como aceito
         || (resource.data.email == myEmail()
           && resource.data.status == 'pending'
           && request.resource.data.status == 'accepted'
@@ -227,15 +306,22 @@ service cloud.firestore {
       allow delete: if isAdminOf(resource.data.companyId);
     }
 
+    // ---------- conversations/{conversationId} ----------
+
     match /conversations/{conversationId} {
+      // Participante da conversa e membro da mesma empresa
       function isParticipant(conv) {
         return signedIn()
           && request.auth.uid in conv.participants
           && isMemberOf(conv.companyId);
       }
 
-      // Permite checar se a conversa existe antes de criá-la.
-      allow get: if signedIn() && (resource == null || isParticipant(resource.data));
+      // Permite checar se a conversa já existe antes de criá-la
+      allow get: if signedIn() && (
+        resource == null
+        || isParticipant(resource.data)
+      );
+
       allow list: if isParticipant(resource.data);
 
       allow create: if isParticipant(request.resource.data)
@@ -253,16 +339,21 @@ service cloud.firestore {
         }
 
         allow read: if isParticipant(conversation());
+
         allow create: if isParticipant(conversation())
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.content is string
           && request.resource.data.content.size() > 0;
 
+        // Só marcar como lida
         allow update: if isParticipant(conversation())
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['readBy']);
 
         allow delete: if false;
       }
     }
+
+    // Qualquer outro caminho fica bloqueado por padrão
   }
 }

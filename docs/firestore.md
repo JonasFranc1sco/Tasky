@@ -56,6 +56,29 @@ Mini chat entre membros da mesma empresa (`ChatService`). A conversa guarda
 `unreadCounts`. Cada mensagem guarda `senderId`, `senderName`, `content`,
 `createdAt` e `readBy`.
 
+## `companies/{companyId}/tasks/{taskId}` e `.../messages/{messageId}`
+
+Tarefas delegadas ficam dentro da empresa. O documento guarda título, descrição,
+prazo, setor, prioridade, `assigneeUid`, `assigneeName`, status, `createdByUid`,
+`createdAt`, `completedAt`, `archivedAt` e `updatedAt`. A tela do gestor
+acompanha a coleção da empresa. A fila do colaborador consulta apenas documentos
+cujo `assigneeUid` é seu UID.
+
+| Ação | Quem executa | Campos atualizados |
+|---|---|---|
+| Delegar | Gestor | `status: pending` |
+| Concluir | Responsável ou gestor | `status: completed` e `completedAt` |
+| Validar e arquivar | Gestor | `archivedAt`, com `status: completed` |
+| Reabrir | Gestor | `status: pending`, limpa `completedAt` e `archivedAt` quando preenchido |
+
+Quando uma tarefa pendente tem `updatedAt` posterior a `createdAt`, o app exibe
+a data de reabertura. Na visão do gestor, arquivadas têm seu próprio filtro e
+contam para o percentual de conclusão.
+
+As mensagens de uma tarefa ficam em sua subcoleção `messages`, com autor, cargo,
+UID do autor, conteúdo e `createdAt`. A lista de mensagens é sincronizada em
+tempo real sem aumentar o documento da tarefa.
+
 ## Como os dados se ligam
 
 ```text
@@ -63,28 +86,25 @@ users/{uid}.companyId        ──►  companies/{id}
 companies/{id}.ownerId       ──►  users/{uid}
 invites/{id}.companyId       ──►  companies/{id}
 conversations/{id}.companyId ──►  companies/{id}
-companies/{id}/tasks/{taskId}.assigneeUid ──► users/{uid}
+companies/{id}/tasks/{taskId} ──► responsável em users/{uid}
 ```
-
-## `companies/{companyId}/tasks/{taskId}`
-
-O Firestore passa a exibir a subcoleção `tasks` no documento da empresa quando a primeira delegação é salva pelo gestor.
-
-O caminho identifica a empresa. Cada tarefa guarda quem delegou (`createdByUid`), quem recebeu (`assigneeUid`, `assigneeName`), título (`name`), descrição, setor, prazo em texto, prioridade (`alta`, `media`, `baixa`) e categoria. Os horários de criação, atualização, conclusão e arquivamento são gravados pelo servidor. O gestor consulta as tarefas da empresa. O colaborador filtra a mesma subcoleção pelo próprio `assigneeUid`.
-
-| Ação | Quem executa no app | Campos atualizados |
-| --- | --- | --- |
-| Delegar | Gestor da empresa | `status: pending` |
-| Concluir | Responsável | `status: completed` e `completedAt` |
-| Validar e arquivar | Gestor da empresa | `archivedAt`, com `status: completed` |
-| Reabrir | Gestor da empresa | `status: pending`, limpa `completedAt` e `archivedAt` quando preenchido |
-
-Quando uma tarefa pendente tem `updatedAt` posterior a `createdAt`, o app mostra a data de reabertura.
-
-### Observações
-
-A subcoleção `companies/{companyId}/tasks/{taskId}/messages/{messageId}` guarda autor, cargo, conteúdo e horário. Gestores da empresa podem escrever. Gestores e o responsável podem ler.
 
 ## Regras de segurança
 
-O arquivo [firestore.rules](../firestore.rules) contém as regras completas para publicar em Firestore → Regras, incluindo usuários, empresas, convites, chat e tarefas. As regras de tarefas consultam `users/{uid}`, onde o ID do documento deve corresponder ao UID do Authentication.
+O arquivo local `firestore.rules` contém as regras de acesso para os dados do
+projeto `tasky-60a18`. Alterações locais nas regras precisam ser publicadas no
+Firestore para entrarem em vigor.
+
+Gestores ativos podem criar, consultar, concluir, validar, arquivar, reabrir e
+excluir tarefas da empresa. Ao excluir uma tarefa, o app grava `deleting: true`
+para bloquear mudanças de status e novas mensagens. Depois remove as mensagens
+em lotes e exclui a tarefa. Se a limpeza for interrompida, o gestor pode retomá-la
+pelo menu da tarefa. Colaboradores ativos podem consultar e concluir apenas
+tarefas atribuídas ao próprio UID. Mensagens são legíveis pelo gestor e pelo
+responsável da tarefa. Gestores podem criá-las ou excluí-las.
+
+O e-mail de login de uma conta ativa deve ser alterado pelo próprio usuário no
+Firebase Authentication, com reautenticação e confirmação por e-mail. Depois da
+confirmação, o app sincroniza `users/{uid}.email`; a regra permite essa
+atualização somente quando o novo valor corresponde ao e-mail do token
+autenticado. Administradores ainda podem editar o e-mail de convites pendentes.
