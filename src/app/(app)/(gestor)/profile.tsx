@@ -92,7 +92,7 @@ export default function AdminProfileScreen() {
               <ManagerStatCard
                 title="Total"
                 value={taskMetrics.total}
-                subtitle="Tarefas cadastradas"
+                subtitle={taskMetrics.completedPercentage}
               />
             </View>
             <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
@@ -106,7 +106,7 @@ export default function AdminProfileScreen() {
               <ManagerStatCard
                 title="Concluídas"
                 value={taskMetrics.completed}
-                subtitle={taskMetrics.completedPercentage}
+                subtitle="Aguardam validação"
               />
             </View>
             <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>

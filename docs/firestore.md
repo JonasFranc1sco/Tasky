@@ -60,10 +60,20 @@ Mini chat entre membros da mesma empresa (`ChatService`). A conversa guarda
 
 Tarefas delegadas ficam dentro da empresa. O documento guarda título, descrição,
 prazo, setor, prioridade, `assigneeUid`, `assigneeName`, status, `createdByUid`,
-`createdAt`, `completedAt`, `archivedAt` e `updatedAt`. `completedAt` registra a
-conclusão pelo responsável; `archivedAt` registra a validação e o arquivamento
-posteriores pelo gestor. A tela do gestor acompanha a coleção da empresa; a fila
-do colaborador consulta apenas documentos cujo `assigneeUid` é seu UID.
+`createdAt`, `completedAt`, `archivedAt` e `updatedAt`. A tela do gestor
+acompanha a coleção da empresa. A fila do colaborador consulta apenas documentos
+cujo `assigneeUid` é seu UID.
+
+| Ação | Quem executa | Campos atualizados |
+|---|---|---|
+| Delegar | Gestor | `status: pending` |
+| Concluir | Responsável ou gestor | `status: completed` e `completedAt` |
+| Validar e arquivar | Gestor | `archivedAt`, com `status: completed` |
+| Reabrir | Gestor | `status: pending`, limpa `completedAt` e `archivedAt` quando preenchido |
+
+Quando uma tarefa pendente tem `updatedAt` posterior a `createdAt`, o app exibe
+a data de reabertura. Na visão do gestor, arquivadas têm seu próprio filtro e
+contam para o percentual de conclusão.
 
 As mensagens de uma tarefa ficam em sua subcoleção `messages`, com autor, cargo,
 UID do autor, conteúdo e `createdAt`. A lista de mensagens é sincronizada em
@@ -85,13 +95,13 @@ O arquivo local `firestore.rules` contém as regras de acesso para os dados do
 projeto `tasky-60a18`. Alterações locais nas regras precisam ser publicadas no
 Firestore para entrarem em vigor.
 
-Gestores ativos podem criar, consultar, validar, arquivar, reabrir e excluir
-tarefas da empresa. Ao excluir uma tarefa, o app remove primeiro suas mensagens
-em lotes e depois exclui o documento da tarefa. Colaboradores ativos podem
-consultar e concluir apenas tarefas atribuídas ao próprio UID; por isso, a
-consulta do app filtra por `assigneeUid`. Mensagens são legíveis pelo gestor e
-pelo responsável da tarefa; apenas gestores podem criá-las ou excluí-las, e a
-edição de mensagens permanece bloqueada.
+Gestores ativos podem criar, consultar, concluir, validar, arquivar, reabrir e
+excluir tarefas da empresa. Ao excluir uma tarefa, o app grava `deleting: true`
+para bloquear mudanças de status e novas mensagens. Depois remove as mensagens
+em lotes e exclui a tarefa. Se a limpeza for interrompida, o gestor pode retomá-la
+pelo menu da tarefa. Colaboradores ativos podem consultar e concluir apenas
+tarefas atribuídas ao próprio UID. Mensagens são legíveis pelo gestor e pelo
+responsável da tarefa. Gestores podem criá-las ou excluí-las.
 
 O e-mail de login de uma conta ativa deve ser alterado pelo próprio usuário no
 Firebase Authentication, com reautenticação e confirmação por e-mail. Depois da

@@ -11,7 +11,7 @@ type Props = {
 
 export function TaskDetailHeader({
   title = 'Detalhes da Tarefa',
-  taskId = 'RF06',
+  taskId,
   onBackPress,
 }: Props) {
   const router = useRouter();
@@ -51,11 +51,13 @@ export function TaskDetailHeader({
         </View>
 
         {/* Badge do ID da Tarefa */}
-        <View className="rounded-lg bg-surface-container px-2.5 py-1">
-          <Text className="text-xs font-bold text-secondary">
-            ID #{taskId}
-          </Text>
-        </View>
+        {taskId ? (
+          <View className="rounded-lg bg-surface-container px-2.5 py-1">
+            <Text className="text-xs font-bold text-secondary">
+              ID #{taskId}
+            </Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
