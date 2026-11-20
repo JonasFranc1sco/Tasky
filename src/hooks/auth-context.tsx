@@ -58,6 +58,7 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<EmployeeMember>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  updateProfilePhoto: (photoURL: string) => Promise<void>;
   updatePersonalInfo: (input: UpdatePersonalInfoInput) => Promise<void>;
   changePassword: (
     currentPassword: string,
@@ -68,9 +69,14 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 // Formata um UserDocument do Firestore para o tipo EmployeeMember da aplicação
-function formatUserProfile(docId: string, data: UserDocument): EmployeeMember {
+function formatUserProfile(
+  docId: string,
+  data: UserDocument,
+  photoURL?: string | null
+): EmployeeMember {
   return {
     ...data,
+    photoURL: photoURL ?? null,
     id: docId,
     uid: data.uid || docId,
     name: data.name || 'Colaborador',
@@ -181,7 +187,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             const memberData = formatUserProfile(
               snap.id,
-              snap.data() as UserDocument
+              snap.data() as UserDocument,
+              firebaseUser.photoURL
             );
             setProfile(memberData);
 
@@ -234,7 +241,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Perfil corporativo não encontrado para este usuário.');
     }
 
-    const memberProfile = formatUserProfile(found.id, found.data);
+    const memberProfile = formatUserProfile(
+      found.id,
+      found.data,
+      credential.user.photoURL
+    );
     setProfile(memberProfile);
 
     if (memberProfile.companyId) {
@@ -262,6 +273,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = useCallback(async (email: string) => {
     await sendPasswordResetEmail(auth, email.trim());
   }, []);
+
+  const updateProfilePhoto = useCallback(async (photoURL: string) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || currentUser.uid !== profile?.uid) {
+      throw new Error('Sessão inválida. Faça login novamente.');
+    }
+
+    await updateProfile(currentUser, { photoURL });
+    setProfile((prev) => (prev ? { ...prev, photoURL } : prev));
+  }, [profile?.uid]);
 
   // Atualiza as informações pessoais do usuário logado (e nome da empresa se for admin)
   const updatePersonalInfo = useCallback(
@@ -344,6 +365,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signOut,
       resetPassword,
+      updateProfilePhoto,
       updatePersonalInfo,
       changePassword,
     };
@@ -353,6 +375,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     company,
     loading,
     resetPassword,
+    updateProfilePhoto,
     updatePersonalInfo,
     changePassword,
   ]);

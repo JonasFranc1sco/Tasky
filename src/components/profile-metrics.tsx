@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { ComponentProps } from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, useWindowDimensions } from 'react-native';
 
 type Props = {
   completion: number;
@@ -27,6 +27,8 @@ export function ProfileMetrics({
   shiftLabel,
   shiftHours,
 }: Props) {
+  const { width } = useWindowDimensions();
+  const isWide = width >= 600;
   const metrics: Metric[] = [
     { icon: 'check-decagram', value: `${completion}%`, caption: 'Conclusão' },
     { icon: 'checkbox-marked-circle-outline', value: `${delivered}`, suffix: deliveredSuffix, caption: 'Entregues' },
@@ -42,9 +44,19 @@ export function ProfileMetrics({
         <Text className="text-[11px] font-medium text-[#006A61]">Ciclo Atual</Text>
       </View>
 
-      <View className="mt-1 flex-row gap-2">
+      <View
+        className="mt-1 gap-2"
+        style={{ flexDirection: 'row', flexWrap: isWide ? 'nowrap' : 'wrap' }}
+      >
         {metrics.map((metric) => (
-          <View key={metric.icon} className="flex-1 rounded-2xl bg-surface-lowest p-3 shadow-sm">
+          <View
+            key={metric.icon}
+            className="rounded-2xl bg-surface-lowest p-3 shadow-sm"
+            style={{
+              width: isWide ? undefined : '48%',
+              flex: isWide ? 1 : undefined,
+            }}
+          >
             <View className="mb-2 h-7 w-7 items-center justify-center rounded-lg bg-[#0F2042]/10">
               <MaterialCommunityIcons name={metric.icon} size={18} color="#0F2042" />
             </View>

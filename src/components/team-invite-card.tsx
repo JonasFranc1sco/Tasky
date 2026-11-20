@@ -31,8 +31,8 @@ export function TeamInviteCard({
   return (
     <View className="rounded-3xl border border-slate-100 bg-surface-lowest p-4 shadow-sm">
       {/* Cabeçalho do Card de Vínculo com Ícone e Descrição */}
-      <View className="flex-row items-center gap-3">
-        <View className="h-11 w-11 items-center justify-center rounded-2xl bg-surface-container">
+      <View className="flex-row flex-wrap items-center gap-3">
+        <View className="h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-surface-container">
           <MaterialCommunityIcons
             name="account-plus-outline"
             size={22}
@@ -51,7 +51,7 @@ export function TeamInviteCard({
 
         {inviteCode ? (
           <Pressable
-            className="flex-row items-center gap-1 rounded-xl bg-surface-container px-2.5 py-1.5"
+            className="flex-row shrink-0 items-center gap-1 rounded-xl bg-surface-container px-2.5 py-1.5"
             onPress={handleShareCompanyCode}
           >
             <Text className="text-xs font-bold text-primary">{inviteCode}</Text>

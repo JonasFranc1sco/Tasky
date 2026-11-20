@@ -17,10 +17,13 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Chip } from 'react-native-paper';
 
 export default function GestorTeamScreen() {
+  const { width } = useWindowDimensions();
+  const numColumns = width >= 1080 ? 2 : 1;
   const { company } = useAuth();
   const {
     filteredMembers,
@@ -59,7 +62,11 @@ export default function GestorTeamScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList
+        key={numColumns}
+        style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}
         data={filteredMembers}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? { gap: 12 } : undefined}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 12 }}
         showsVerticalScrollIndicator={false}
@@ -190,21 +197,23 @@ export default function GestorTeamScreen() {
           </>
         }
         renderItem={({ item }) => (
-          <TeamMemberCard
-            member={{
-              id: item.id,
-              name: item.name,
-              role: item.sector
-                ? `${item.jobTitle} • ${item.sector}`
-                : item.jobTitle,
-              status: item.status,
-              initials: item.initials,
-              pendingTasks: item.pendingTasks,
-              completedTasks: item.completedTasks,
-              statusMessage: item.statusMessage,
-            }}
-            onPress={() => handleEditMember(item)}
-          />
+          <View style={{ flex: 1, maxWidth: numColumns > 1 ? '49%' : '100%' }}>
+            <TeamMemberCard
+              member={{
+                id: item.id,
+                name: item.name,
+                role: item.sector
+                  ? `${item.jobTitle} • ${item.sector}`
+                  : item.jobTitle,
+                status: item.status,
+                initials: item.initials,
+                pendingTasks: item.pendingTasks,
+                completedTasks: item.completedTasks,
+                statusMessage: item.statusMessage,
+              }}
+              onPress={() => handleEditMember(item)}
+            />
+          </View>
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-10">

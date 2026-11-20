@@ -14,7 +14,7 @@ export function ManagerHeroCard({
 }: Props) {
   return (
     <View className="rounded-3xl bg-primary p-5 shadow-sm">
-      <View className="flex-row items-center justify-between">
+      <View className="flex-row flex-wrap items-center justify-between gap-2">
         <View className="flex-row items-center gap-1.5 rounded-full bg-white/10 px-3 py-1">
           <View className="h-1.5 w-1.5 rounded-full bg-slate-300" />
           <Text className="text-xs font-medium text-slate-200">Painel Administrativo</Text>

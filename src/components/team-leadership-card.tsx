@@ -15,7 +15,7 @@ type Props = {
 export function TeamLeadershipCard({ manager, onTalkPress }: Props) {
   return (
     <View className="rounded-xl bg-[#0F2042] p-3.5 shadow-sm">
-      <View className="flex-row items-center justify-between">
+      <View className="flex-row flex-wrap items-center justify-between gap-2">
         <View className="flex-row items-center gap-1.5">
           <MaterialCommunityIcons name="shield-check-outline" size={16} color="#94A3B8" />
           <Text className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">

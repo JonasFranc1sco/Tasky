@@ -1,79 +1,87 @@
 import { TaskControlActionsCard } from '@/components/task-control-actions-card';
 import { TaskDetailHeader } from '@/components/task-detail-header';
 import { TaskInfoCard, type TaskDetailInfo } from '@/components/task-info-card';
-import { TaskNotesCard, type TaskNote } from '@/components/task-notes-card';
-import { Stack, useRouter } from 'expo-router';
+import { TaskNotesCard } from '@/components/task-notes-card';
+import { useTaskNotes } from '@/hooks/task-notes';
+import { useTasks } from '@/hooks/tasks-context';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { Snackbar } from 'react-native-paper';
-
-// Dados definidos localmente no próprio arquivo (sem mock externo)
-const INITIAL_TASK: TaskDetailInfo = {
-  id: 'RF06',
-  code: 'RF06',
-  title: 'Configuração do Runner CI/CD',
-  description:
-    'Instalar e validar o novo runner na organização, configurar as tags de execução e revisar os workflows de deploy.',
-  status: 'completed',
-  assignee: 'Rafael Horeay',
-  dueDate: '18/10 às 16:00',
-  createdAt: '16/10 às 09:30',
-  completedAt: '18/10 às 15:42',
-};
-
-const INITIAL_NOTES: TaskNote[] = [
-  {
-    id: '1',
-    author: 'João Pedro',
-    role: 'Supervisor',
-    timestamp: 'Ontem',
-    content:
-      'Confirmar a versão do runner e o cache de dependências antes de encerrar a configuração.',
-  },
-];
 
 export default function GestorViewTaskScreen() {
   const router = useRouter();
-  const [task, setTask] = useState<TaskDetailInfo>(INITIAL_TASK);
-  const [notes, setNotes] = useState<TaskNote[]>(INITIAL_NOTES);
+  const { taskId } = useLocalSearchParams<{ taskId?: string }>();
+  const requestedTaskId = Array.isArray(taskId) ? taskId[0] : taskId;
+  const {
+    tasks,
+    loading: tasksLoading,
+    error: tasksError,
+    updateTaskStatus,
+    archiveTask,
+  } = useTasks();
+  const selectedTask = tasks.find((item) => item.id === requestedTaskId);
+  const { notes, loading: notesLoading, error: notesError, addNote } =
+    useTaskNotes(selectedTask?.id ?? null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
-  const handleSaveNote = (content: string) => {
-    const newNote: TaskNote = {
-      id: Date.now().toString(),
-      author: 'João Pedro',
-      role: 'Supervisor',
-      timestamp: 'Agora',
-      content,
-    };
-    setNotes((prev) => [...prev, newNote]);
+  const handleSaveNote = async (content: string) => {
+    await addNote(content);
     setSnackbarMessage('Nota adicionada com sucesso!');
   };
 
-  const handleValidateAndArchive = () => {
-    setTask((prev) => ({
-      ...prev,
-      status: 'completed',
-      completedAt: prev.completedAt ?? '18/10 às 15:42',
-    }));
-    Alert.alert(
-      'Tarefa Validada',
-      'A tarefa foi validada e arquivada com sucesso pelo gestor.',
-      [{ text: 'OK' }]
-    );
+  const handleValidateAndArchive = async () => {
+    if (!selectedTask) return;
+    try {
+      await archiveTask(selectedTask.id);
+      setSnackbarMessage('Tarefa validada e arquivada.');
+    } catch (error) {
+      setSnackbarMessage(
+        error instanceof Error ? error.message : 'Não foi possível atualizar a tarefa.'
+      );
+    }
   };
 
-  const handleReopenTask = () => {
-    setTask((prev) => ({
-      ...prev,
-      status: 'pending',
-      completedAt: undefined,
-    }));
-    Alert.alert(
-      'Tarefa Reaberta',
-      'A tarefa foi reaberta com status Pendente para revisão da equipe.',
-      [{ text: 'OK' }]
+  const handleReopenTask = async () => {
+    if (!selectedTask) return;
+    try {
+      await updateTaskStatus(selectedTask.id, 'pending');
+      setSnackbarMessage('Tarefa reaberta como pendente.');
+    } catch (error) {
+      setSnackbarMessage(
+        error instanceof Error ? error.message : 'Não foi possível atualizar a tarefa.'
+      );
+    }
+  };
+
+  if (!selectedTask) {
+    return (
+      <View className="flex-1 bg-surface">
+        <TaskDetailHeader
+          title="Detalhes da Tarefa"
+          taskId={requestedTaskId ?? '—'}
+          onBackPress={() => router.back()}
+        />
+        <Stack.Screen options={{ headerShown: false }} />
+        <Text className="p-4 text-on-surface-variant">
+          {tasksLoading
+            ? 'Carregando tarefa...'
+            : tasksError ?? 'Tarefa não encontrada.'}
+        </Text>
+      </View>
     );
+  }
+
+  const task: TaskDetailInfo = {
+    id: selectedTask.id,
+    code: `TSK-${selectedTask.id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}`,
+    title: selectedTask.name,
+    description: selectedTask.description,
+    status: selectedTask.completedAt ? 'completed' : 'pending',
+    assignee: selectedTask.assignee.name,
+    dueDate: selectedTask.dueDate || 'Sem prazo definido',
+    createdAt: formatTaskDate(selectedTask.createdAt) ?? '—',
+    completedAt: formatTaskDate(selectedTask.completedAt ?? undefined),
   };
 
   return (
@@ -93,19 +101,26 @@ export default function GestorViewTaskScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <ScrollView
+        style={{ width: '100%', maxWidth: 960, alignSelf: 'center' }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 14 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 14, flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
       >
         {/* Card de Informações Principais e Metadados da Tarefa */}
         <TaskInfoCard task={task} />
 
         {/* Card de Observações da Chefia e Inclusão de Apontamentos */}
-        <TaskNotesCard notes={notes} onSaveNote={handleSaveNote} />
+        <TaskNotesCard
+          notes={notes}
+          onSaveNote={handleSaveNote}
+          loading={notesLoading}
+          error={notesError}
+        />
 
         {/* Card de Ações de Controle (Validação e Reabertura) */}
         <TaskControlActionsCard
           isCompleted={task.status === 'completed'}
+          isArchived={!!selectedTask.archivedAt}
           onValidateAndArchive={handleValidateAndArchive}
           onReopenTask={handleReopenTask}
         />
@@ -122,4 +137,14 @@ export default function GestorViewTaskScreen() {
       </Snackbar>
     </View>
   );
+}
+
+function formatTaskDate(value?: string) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
 }

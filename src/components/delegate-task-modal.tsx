@@ -1,8 +1,9 @@
 import { useTeam } from '@/hooks/team-context';
+import { getResponsiveModalContentStyle } from '@/components/responsive-modal-style';
 import type { EmployeeMember } from '@/types/company';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Chip, Modal, Portal } from 'react-native-paper';
 
 export type DelegationPayload = {
@@ -17,7 +18,7 @@ export type DelegationPayload = {
 type Props = {
   visible: boolean;
   onDismiss: () => void;
-  onConfirm: (payload: DelegationPayload) => void;
+  onConfirm: (payload: DelegationPayload) => void | Promise<void>;
 };
 
 const PRIORITIES: DelegationPayload['priority'][] = [
@@ -36,6 +37,8 @@ function FieldLabel({ text }: { text: string }) {
 
 export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
   const { activeMembers } = useTeam();
+  const { width, height } = useWindowDimensions();
+  const isNarrow = width < 480;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [sector, setSector] = useState('');
@@ -44,6 +47,7 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
     useState<DelegationPayload['priority']>('Alta Prioridade');
   const [assignee, setAssignee] = useState<EmployeeMember | null>(null);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const reset = () => {
     setTitle('');
@@ -60,7 +64,7 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
     onDismiss();
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!title.trim()) {
       setError('Informe o título da tarefa.');
       return;
@@ -69,15 +73,27 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
       setError('Selecione o funcionário responsável.');
       return;
     }
-    onConfirm({
-      title: title.trim(),
-      description: description.trim(),
-      sector: sector.trim(),
-      dueDate: dueDate.trim(),
-      priority,
-      assignee,
-    });
-    reset();
+    setSaving(true);
+    setError('');
+    try {
+      await onConfirm({
+        title: title.trim(),
+        description: description.trim(),
+        sector: sector.trim(),
+        dueDate: dueDate.trim(),
+        priority,
+        assignee,
+      });
+      reset();
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : 'Não foi possível delegar a tarefa.'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const inputClass =
@@ -88,9 +104,12 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
       <Modal
         visible={visible}
         onDismiss={handleDismiss}
-        contentContainerStyle={{ margin: 20 }}
+        contentContainerStyle={getResponsiveModalContentStyle(width, height, 640)}
       >
-        <View className="max-h-[85%] rounded-3xl bg-surface-lowest p-5 shadow-sm">
+        <View
+          className="max-h-[85%] rounded-3xl bg-surface-lowest p-5 shadow-sm"
+          style={{ maxHeight: Math.min(height - 64, 760), width: '100%' }}
+        >
           <View className="flex-row items-center justify-between">
             <Text className="text-lg font-bold text-on-surface">
               Delegar Tarefa
@@ -105,7 +124,7 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
           </View>
 
           <ScrollView
-            className="mt-4"
+            className="mt-4 flex-1"
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -133,8 +152,8 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
                 />
               </View>
 
-              <View className="flex-row gap-2.5">
-                <View className="flex-1 gap-1">
+              <View className="gap-2.5" style={{ flexDirection: isNarrow ? 'column' : 'row' }}>
+                <View className="gap-1" style={{ flex: isNarrow ? undefined : 1 }}>
                   <FieldLabel text="Setor" />
                   <TextInput
                     className={inputClass}
@@ -144,7 +163,7 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
                     placeholderTextColor="#75777F"
                   />
                 </View>
-                <View className="flex-1 gap-1">
+                <View className="gap-1" style={{ flex: isNarrow ? undefined : 1 }}>
                   <FieldLabel text="Prazo" />
                   <TextInput
                     className={inputClass}
@@ -248,9 +267,10 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
             <Pressable
               className="h-11 flex-1 items-center justify-center rounded-xl bg-primary active:opacity-80"
               onPress={handleConfirm}
+              disabled={saving}
             >
               <Text className="text-sm font-semibold text-white">
-                Delegar Tarefa
+                {saving ? 'Salvando...' : 'Delegar Tarefa'}
               </Text>
             </Pressable>
           </View>

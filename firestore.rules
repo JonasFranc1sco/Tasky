@@ -40,6 +40,11 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/companies/$(companyId));
     }
 
+    function isActiveMemberOf(companyId) {
+      return isMemberOf(companyId)
+        && me().get('status', 'active') == 'active';
+    }
+
     // Convite individual válido para entrar como admin
     function adminInviteMatches(inviteId) {
       let invitePath = /databases/$(database)/documents/invites/$(inviteId);
@@ -114,6 +119,148 @@ service cloud.firestore {
         && request.resource.data.ownerId == resource.data.ownerId;
 
       allow delete: if false;
+
+      // ---------- tasks/{taskId} ----------
+      match /tasks/{taskId} {
+        function taskPath() {
+          return /databases/$(database)/documents/companies/$(companyId)/tasks/$(taskId);
+        }
+
+        function canReadTask() {
+          return isActiveMemberOf(companyId)
+            && exists(taskPath())
+            && (isAdminOf(companyId)
+              || get(taskPath()).data.assigneeUid == request.auth.uid);
+        }
+
+        function validTaskCreate() {
+          let data = request.resource.data;
+          let assigneePath = /databases/$(database)/documents/users/$(data.assigneeUid);
+          return data.keys().hasAll([
+              'name', 'description', 'dueDate', 'assigneeUid', 'assigneeName',
+              'sector', 'priority', 'category', 'status', 'completedAt', 'archivedAt',
+              'createdByUid', 'createdAt', 'updatedAt'
+            ])
+            && data.keys().hasOnly([
+              'name', 'description', 'dueDate', 'assigneeUid', 'assigneeName',
+              'sector', 'priority', 'category', 'status', 'completedAt', 'archivedAt',
+              'createdByUid', 'createdAt', 'updatedAt'
+            ])
+            && data.name is string
+            && data.name.size() > 0
+            && data.name.size() <= 160
+            && data.description is string
+            && data.description.size() <= 4000
+            && data.dueDate is string
+            && data.dueDate.size() <= 100
+            && data.assigneeUid is string
+            && data.assigneeName is string
+            && data.assigneeName.size() <= 120
+            && data.sector is string
+            && data.sector.size() <= 120
+            && data.priority in ['alta', 'media', 'baixa']
+            && data.category is string
+            && data.category.size() <= 120
+            && data.status == 'pending'
+            && data.completedAt == null
+            && data.archivedAt == null
+            && data.createdByUid == request.auth.uid
+            && data.createdAt == request.time
+            && data.updatedAt == request.time
+            && exists(assigneePath)
+            && get(assigneePath).data.companyId == companyId
+            && get(assigneePath).data.get('status', 'active') == 'active'
+            && get(assigneePath).data.name == data.assigneeName;
+        }
+
+        function validTaskStatusUpdate() {
+          return request.resource.data.diff(resource.data).affectedKeys()
+              .hasAll(['status', 'completedAt', 'updatedAt'])
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'completedAt', 'updatedAt'])
+            && request.resource.data.status in ['pending', 'completed']
+            && request.resource.data.updatedAt == request.time
+            && ((request.resource.data.status == 'completed'
+                && request.resource.data.completedAt == request.time
+                && request.resource.data.get('archivedAt', null) == null)
+              || (request.resource.data.status == 'pending'
+                && request.resource.data.completedAt == null
+                && request.resource.data.get('archivedAt', null) == null));
+        }
+
+        function validTaskArchive() {
+          let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
+          return affectedKeys.hasAll(['archivedAt', 'updatedAt'])
+            && affectedKeys.hasOnly(['archivedAt', 'updatedAt'])
+            && resource.data.get('status', 'pending') == 'completed'
+            && resource.data.get('completedAt', null) != null
+            && resource.data.get('archivedAt', null) == null
+            && request.resource.data.archivedAt == request.time
+            && request.resource.data.updatedAt == request.time;
+        }
+
+        function validAdminReopen() {
+          let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
+          return affectedKeys.hasAll(['status', 'completedAt', 'archivedAt', 'updatedAt'])
+            && affectedKeys.hasOnly(['status', 'completedAt', 'archivedAt', 'updatedAt'])
+            && resource.data.get('status', 'pending') == 'completed'
+            && resource.data.get('archivedAt', null) != null
+            && request.resource.data.status == 'pending'
+            && request.resource.data.completedAt == null
+            && request.resource.data.archivedAt == null
+            && request.resource.data.updatedAt == request.time;
+        }
+
+        allow get: if isActiveMemberOf(companyId)
+          && (isAdminOf(companyId)
+            || resource.data.get('assigneeUid', null) == request.auth.uid);
+
+        // Consultas de colaboradores precisam filtrar assigneeUid pelo próprio UID.
+        allow list: if isActiveMemberOf(companyId)
+          && (isAdminOf(companyId)
+            || resource.data.get('assigneeUid', null) == request.auth.uid);
+
+        allow create: if isAdminOf(companyId)
+          && isActiveMemberOf(companyId)
+          && validTaskCreate();
+
+        allow update: if isActiveMemberOf(companyId)
+          && ((isAdminOf(companyId)
+              && (validTaskStatusUpdate() || validTaskArchive() || validAdminReopen()))
+            || (resource.data.get('assigneeUid', null) == request.auth.uid
+              && resource.data.status == 'pending'
+              && request.resource.data.status == 'completed'
+              && validTaskStatusUpdate()));
+
+        allow delete: if false;
+
+        // ---------- tasks/{taskId}/messages/{messageId} ----------
+        match /messages/{messageId} {
+          function validNoteCreate() {
+            let data = request.resource.data;
+            return data.keys().hasAll(['author', 'authorUid', 'role', 'content', 'createdAt'])
+              && data.keys().hasOnly(['author', 'authorUid', 'role', 'content', 'createdAt'])
+              && data.author is string
+              && data.author == me().name
+              && data.authorUid == request.auth.uid
+              && data.role is string
+              && data.role == me().jobTitle
+              && data.content is string
+              && data.content.size() > 0
+              && data.content.size() <= 5000
+              && data.createdAt == request.time;
+          }
+
+          allow get, list: if canReadTask();
+
+          // Apenas gestor registra notas; o colaborador responsável pode lê-las.
+          allow create: if canReadTask()
+            && isAdminOf(companyId)
+            && validNoteCreate();
+
+          allow update, delete: if false;
+        }
+      }
     }
 
     // ---------- invites/{inviteId} ----------

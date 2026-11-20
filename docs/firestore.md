@@ -56,6 +56,19 @@ Mini chat entre membros da mesma empresa (`ChatService`). A conversa guarda
 `unreadCounts`. Cada mensagem guarda `senderId`, `senderName`, `content`,
 `createdAt` e `readBy`.
 
+## `companies/{companyId}/tasks/{taskId}` e `.../messages/{messageId}`
+
+Tarefas delegadas ficam dentro da empresa. O documento guarda título, descrição,
+prazo, setor, prioridade, `assigneeUid`, `assigneeName`, status, `createdByUid`,
+`createdAt`, `completedAt`, `archivedAt` e `updatedAt`. `completedAt` registra a
+conclusão pelo responsável; `archivedAt` registra a validação e o arquivamento
+posteriores pelo gestor. A tela do gestor acompanha a coleção da empresa; a fila
+do colaborador consulta apenas documentos cujo `assigneeUid` é seu UID.
+
+As mensagens de uma tarefa ficam em sua subcoleção `messages`, com autor, cargo,
+UID do autor, conteúdo e `createdAt`. A lista de mensagens é sincronizada em
+tempo real sem aumentar o documento da tarefa.
+
 ## Como os dados se ligam
 
 ```text
@@ -63,27 +76,18 @@ users/{uid}.companyId        ──►  companies/{id}
 companies/{id}.ownerId       ──►  users/{uid}
 invites/{id}.companyId       ──►  companies/{id}
 conversations/{id}.companyId ──►  companies/{id}
+companies/{id}/tasks/{taskId} ──► responsável em users/{uid}
 ```
 
 ## Regras de segurança
 
-Arquivo versionado: [`firestore.rules`](../firestore.rules). Para aplicar, copie o
-conteúdo em Console → Firestore → Regras → **Publicar** (ou `firebase deploy --only firestore:rules`).
+O arquivo local `firestore.rules` contém as regras ativas copiadas do projeto
+`tasky-60a18` e as permissões para tasks e mensagens. Essas regras já estão
+publicadas no Firestore do projeto.
 
-| Coleção | Leitura | Escrita |
-|---|---|---|
-| `users` | Próprio perfil e membros da mesma empresa | Próprio usuário só edita `name`, `jobTitle`, `sector`, `companyName`; admin edita e remove membros da empresa |
-| `companies` | Membros da empresa (busca por código com `limit(1)`) | Criada pelo admin no cadastro; só admin edita |
-| `invites` | Admin/membros da empresa e o próprio convidado (busca por código com `limit(5)`) | Admin cria, edita e remove; convidado só marca como aceito |
-| `conversations` / `messages` | Só os 2 participantes | Participantes da mesma empresa; mensagem só com `senderId` próprio |
-
-Regras de cadastro em `users`:
-- `role: "admin"` só para empresa **nova** (cadastro) ou com convite de admin válido (`inviteId`).
-- `role: "worker"` só para empresa **existente**.
-- Ninguém altera o próprio `role`, `companyId` ou `status`.
-
-Limitações conhecidas:
-- A busca por código em `/join` exige permitir listagem de `companies` e `invites`
-  com limite pequeno a qualquer usuário logado. Uma coleção separada só para os
-  códigos eliminaria isso.
-- Quem tem o código geral da empresa entra como `worker` (comportamento esperado do convite geral).
+Gestores ativos podem criar tarefas, consultar as tarefas da empresa, validar e
+arquivar tarefas concluídas e reabri-las. Colaboradores ativos podem consultar e
+concluir apenas tarefas atribuídas ao próprio UID; por isso, a consulta do app
+filtra por `assigneeUid`. Mensagens são legíveis pelo gestor e pelo responsável
+da tarefa, mas apenas gestores podem criá-las. Exclusão de tarefas e edição ou
+exclusão de mensagens ficam bloqueadas.
