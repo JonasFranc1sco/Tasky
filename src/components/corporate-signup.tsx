@@ -7,6 +7,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -200,6 +201,8 @@ function SectionTitle({
 export function CorporateSignup() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const isWideLayout = width >= 720;
 
   const [step, setStep] = useState<1 | 2>(1);
   const [terms, setTerms] = useState(false);
@@ -305,7 +308,10 @@ export function CorporateSignup() {
   return (
     <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-background">
       <View className="flex-1 bg-background">
-        <View className="h-[58px] flex-row items-center justify-between border-b border-border bg-surface px-3">
+        <View
+          className="h-[58px] flex-row items-center justify-between border-b border-border bg-surface px-3"
+          style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}
+        >
           <Pressable
             onPress={goBack}
             className="h-9 w-9 items-center justify-center rounded-xl bg-background"
@@ -327,47 +333,83 @@ export function CorporateSignup() {
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          contentContainerClassName="grow p-5"
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: width < 360 ? 12 : 20,
+            paddingVertical: 24,
+          }}
         >
-          <Text className="text-[22px] font-extrabold text-foreground">
-            Criar Conta Corporativa
-          </Text>
+          <View
+            style={{
+              width: '100%',
+              maxWidth: isWideLayout ? 960 : 560,
+              alignSelf: 'center',
+            }}
+          >
+            <Text className="text-[22px] font-extrabold text-foreground">
+              Criar Conta Corporativa
+            </Text>
 
-          <Text className="mt-1 text-[13px] text-muted">
-            {step === 1
-              ? "Cadastre sua empresa"
-              : "Configure o perfil inicial de Administrador."}
-          </Text>
+            <Text className="mt-1 text-[13px] text-muted">
+              {step === 1
+                ? "Cadastre sua empresa"
+                : "Configure o perfil inicial de Administrador."}
+            </Text>
 
-          <Steps step={step} />
+            <Steps step={step} />
 
-          <View className="rounded-2xl border border-border bg-surface p-3.5">
-            <SectionTitle step={step} admin={step === 2} />
+            <View
+              className="rounded-2xl border border-border bg-surface"
+              style={{
+                width: '100%',
+                maxWidth: isWideLayout ? 900 : 560,
+                alignSelf: 'center',
+                padding: isWideLayout ? 22 : 14,
+              }}
+            >
+              <SectionTitle step={step} admin={step === 2} />
 
-            {fields.map((field) => (
-              <Field
-                key={field.key}
-                config={field}
-                value={String(values[field.key as keyof typeof values] ?? "")}
-                onChange={(value) => update(field.key, value)}
-                password={field.key === "password"}
-                showPassword={showPassword}
-                onTogglePassword={() => setShowPassword((value) => !value)}
-              />
-            ))}
-
-            {step === 2 ? (
-              <Field
-                config={{
-                  key: "role",
-                  label: "Cargo / Perfil",
-                  icon: "account-tie-outline",
+              <View
+                style={{
+                  flexDirection: isWideLayout ? 'row' : 'column',
+                  flexWrap: isWideLayout ? 'wrap' : 'nowrap',
+                  gap: isWideLayout ? 12 : 0,
                 }}
-                value="Administrador (Proprietário)"
-                readOnly
-              />
-            ) : null}
-          </View>
+              >
+                {fields.map((field) => (
+                  <View
+                    key={field.key}
+                    style={{
+                      width: isWideLayout ? '48%' : '100%',
+                      flexGrow: isWideLayout ? 1 : 0,
+                    }}
+                  >
+                    <Field
+                      config={field}
+                      value={String(values[field.key as keyof typeof values] ?? "")}
+                      onChange={(value) => update(field.key, value)}
+                      password={field.key === "password"}
+                      showPassword={showPassword}
+                      onTogglePassword={() => setShowPassword((value) => !value)}
+                    />
+                  </View>
+                ))}
+
+                {step === 2 ? (
+                  <View style={{ width: '100%' }}>
+                    <Field
+                      config={{
+                        key: "role",
+                        label: "Cargo / Perfil",
+                        icon: "account-tie-outline",
+                      }}
+                      value="Administrador (Proprietário)"
+                      readOnly
+                    />
+                  </View>
+                ) : null}
+              </View>
+            </View>
 
           <Pressable
             onPress={() => setTerms((value) => !value)}
@@ -433,7 +475,7 @@ export function CorporateSignup() {
             />
           </Pressable>
 
-          <View className="mt-4 flex-row justify-center">
+            <View className="mt-4 flex-row flex-wrap justify-center">
             <Text className="text-[10px] text-muted">
               Já possui uma empresa cadastrada?{" "}
             </Text>
@@ -444,6 +486,7 @@ export function CorporateSignup() {
                 Fazer Login
               </Text>
             </Pressable>
+            </View>
           </View>
         </ScrollView>
       </View>

@@ -2,11 +2,20 @@ import { TeamService } from '@/services/team-service';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 
 export default function JoinCompanyScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ code?: string }>();
+  const { width } = useWindowDimensions();
+  const isWideForm = width >= 600;
 
   const [code, setCode] = useState(() =>
     params.code ? String(params.code).toUpperCase() : ''
@@ -119,7 +128,10 @@ export default function JoinCompanyScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View className="mx-auto w-full max-w-[460px]">
+        <View
+          className="mx-auto w-full"
+          style={{ maxWidth: 560, alignSelf: 'center' }}
+        >
           {/* Cabeçalho de vínculo por convite */}
           <View className="mb-6 items-center">
             <View className="mb-3 h-14 w-14 items-center justify-center rounded-2xl bg-primary">
@@ -179,7 +191,10 @@ export default function JoinCompanyScreen() {
               />
             </FormField>
 
-            <View className="flex-row gap-2.5">
+            <View
+              className="gap-2.5"
+              style={{ flexDirection: isWideForm ? 'row' : 'column' }}
+            >
               <View className="flex-1">
                 <FormField icon="briefcase-outline" label="Cargo">
                   <TextInput

@@ -8,6 +8,7 @@ import {
 import { ProfileRow, ProfileSection } from '@/components/profile-section';
 import { ScreenHeader } from '@/components/screen-header';
 import { useAuth } from '@/hooks/auth-context';
+import { useProfilePhoto } from '@/hooks/use-profile-photo';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -20,6 +21,12 @@ const CHEVRON = (
 
 export default function MyProfileScreen() {
   const { profile, company, signOut } = useAuth();
+  const {
+    uploading: photoUploading,
+    progress: photoUploadProgress,
+    error: photoError,
+    pickAndUploadPhoto,
+  } = useProfilePhoto();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [reopenAlertsEnabled, setReopenAlertsEnabled] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -45,12 +52,18 @@ export default function MyProfileScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <ScrollView
+        style={{ width: '100%', maxWidth: 960, alignSelf: 'center' }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 24 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 24, flexGrow: 1 }}
       >
         <ProfileHeroCard
           name={profile?.name ?? 'Colaborador'}
           initials={profile?.initials ?? 'CL'}
+          photoURL={profile?.photoURL}
+          photoUploading={photoUploading}
+          photoUploadProgress={photoUploadProgress}
+          photoError={photoError}
+          onPhotoPress={pickAndUploadPhoto}
           role={roleDisplay}
           company={companyDisplayName}
           statusLabel="Em Turno Ativo"

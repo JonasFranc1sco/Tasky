@@ -8,6 +8,7 @@ import {
   type Persistence,
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import { Platform } from 'react-native';
 
 // Configuração do projeto Firebase via variáveis de ambiente do Expo
@@ -51,3 +52,4 @@ function createAuth(): Auth {
 
 export const auth = createAuth();
 export const db = getFirestore(app);
+export const storage = getStorage(app);
