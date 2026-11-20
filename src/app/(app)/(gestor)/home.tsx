@@ -118,6 +118,7 @@ export default function GestorHomeScreen() {
     matchesSector
   );
 });
+const totalFilteredTasks = filteredTasks.length;
   const handleDelegate = async (payload: DelegationPayload) => {
   await addTask({
     name: payload.title,
@@ -154,6 +155,22 @@ export default function GestorHomeScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
+          <Text
+  style={{
+    marginBottom: 12,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#45464E',
+  }}
+>
+  {totalFilteredTasks === 0
+    ? 'Nenhuma tarefa encontrada'
+    : `${totalFilteredTasks} ${
+        totalFilteredTasks === 1
+          ? 'tarefa encontrada'
+          : 'tarefas encontradas'
+      }`}
+</Text>
             {/* Banner do Gestor */}
             <ManagerHeroCard
               greeting={`Olá, ${managerDisplayName} 👋`}
