@@ -47,7 +47,58 @@ const INITIAL_TASKS: ManagerTask[] = [
     category: 'Rotina',
   },
 ];
+function getTaskDate(time: string): number {
+  if (!time) return NaN;
 
+  const value = time.trim();
+
+  // Datas no formato DD/MM/AAAA
+  const dateMatch = value.match(
+    /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/
+  );
+
+  if (dateMatch) {
+    const [, day, month, year, hour = '0', minute = '0'] = dateMatch;
+
+    return new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute)
+    ).getTime();
+  }
+
+  // Datas relativas
+  const now = new Date();
+
+  if (value.startsWith('Hoje')) {
+    const result = new Date(now);
+    const match = value.match(/(\d{1,2}):(\d{2})/);
+
+    if (match) {
+      result.setHours(Number(match[1]), Number(match[2]), 0, 0);
+    }
+
+    return result.getTime();
+  }
+
+  if (value.startsWith('Amanhã')) {
+    const result = new Date(now);
+    result.setDate(result.getDate() + 1);
+
+    const match = value.match(/(\d{1,2}):(\d{2})/);
+
+    if (match) {
+      result.setHours(Number(match[1]), Number(match[2]), 0, 0);
+    }
+
+    return result.getTime();
+  }
+
+  // Datas ISO
+  return Date.parse(value);
+}
 export default function GestorHomeScreen() {
   const router = useRouter();
   const { profile, company } = useAuth();
@@ -59,6 +110,8 @@ export default function GestorHomeScreen() {
   const [employeeFilter, setEmployeeFilter] = useState('all');
   const [sectorFilter, setSectorFilter] = useState('all');
   const [dateSort, setDateSort] = useState<'default' | 'asc' | 'desc'>('default');
+  const [alphabeticalSort, setAlphabeticalSort] =
+  useState<'default' | 'asc' | 'desc'>('default');
   const handleClearFilters = () => {
   setSearchQuery('');
   setEmployeeFilter('all');
@@ -66,6 +119,7 @@ export default function GestorHomeScreen() {
   setPriorityFilter('all');
   setDateSort('default');
   setFilter('all');
+  setAlphabeticalSort('default');
 };
   const [priorityFilter, setPriorityFilter] = useState('all');
   const {
@@ -94,7 +148,7 @@ export default function GestorHomeScreen() {
   ),
 ];
 
-  const filteredTasks = tasks.filter((task) => {
+ const filteredTasks = tasks.filter((task) => { 
     const matchesStatus = filter === 'all' || task.status === filter;
 
     const matchesSearch = task.title
@@ -118,6 +172,30 @@ export default function GestorHomeScreen() {
     matchesSector
   );
 });
+const sortedTasks = [...filteredTasks].sort((a, b) => {
+  if (alphabeticalSort === 'asc') {
+    return a.title.localeCompare(b.title, 'pt-BR');
+  }
+
+  if (alphabeticalSort === 'desc') {
+    return b.title.localeCompare(a.title, 'pt-BR');
+  }
+
+  if (dateSort !== 'default') {
+    const dateA = getTaskDate(a.time);
+    const dateB = getTaskDate(b.time);
+
+    if (!Number.isFinite(dateA) && !Number.isFinite(dateB)) return 0;
+    if (!Number.isFinite(dateA)) return 1;
+    if (!Number.isFinite(dateB)) return -1;
+
+    return dateSort === 'asc'
+      ? dateA - dateB
+      : dateB - dateA;
+  }
+
+  return 0;
+});
 const totalFilteredTasks = filteredTasks.length;
 const activeFiltersCount = [
   searchQuery.trim() !== '',
@@ -125,6 +203,7 @@ const activeFiltersCount = [
   employeeFilter !== 'all',
   sectorFilter !== 'all',
   dateSort !== 'default',
+  alphabeticalSort !== 'default',
   filter !== 'all',
 ].filter(Boolean).length;
   const handleDelegate = async (payload: DelegationPayload) => {
@@ -412,20 +491,62 @@ const activeFiltersCount = [
     onPress={() => setDateSort('default')}
   >
     Padrão
-  </Chip>
-
-  <Chip
-    selected={dateSort === 'asc'}
-    onPress={() => setDateSort('asc')}
-  >
-    Mais próximas
-  </Chip>
+ <Chip
+  selected={dateSort === 'asc'}
+  onPress={() => {
+    setDateSort('asc');
+    setAlphabeticalSort('default');
+  }}
+>
+  Mais próximas
+</Chip>
+</Chip>
 
   <Chip
     selected={dateSort === 'desc'}
-    onPress={() => setDateSort('desc')}
+    onPress={() => {
+      setDateSort('desc');
+      setAlphabeticalSort('default');
+    }}
   >
     Mais distantes
+  </Chip>
+</ScrollView>
+<Text className="mt-4 text-sm font-semibold text-on-surface">
+  Ordenar por título
+</Text>
+
+<ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  className="mt-2"
+  contentContainerStyle={{ gap: 8 }}
+>
+  <Chip
+    selected={alphabeticalSort === 'default'}
+    onPress={() => setAlphabeticalSort('default')}
+  >
+    Padrão
+  </Chip>
+
+  <Chip
+    selected={alphabeticalSort === 'asc'}
+    onPress={() => {
+      setAlphabeticalSort('asc');
+      setDateSort('default');
+    }}
+  >
+    A–Z
+  </Chip>
+
+  <Chip
+    selected={alphabeticalSort === 'desc'}
+    onPress={() => {
+      setAlphabeticalSort('desc');
+      setDateSort('default');
+    }}
+  >
+    Z–A
   </Chip>
 </ScrollView>
 </View>
