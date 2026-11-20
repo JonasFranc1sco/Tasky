@@ -56,7 +56,7 @@ function InviteEmployeeForm({
   const { width, height } = useWindowDimensions();
   const isNarrow = width < 480;
   const { company, profile } = useAuth();
-  const { inviteEmployee, updateEmployee } = useTeam();
+  const { inviteEmployee, updateEmployee, removeMember } = useTeam();
 
   const isEditing = Boolean(editingMember);
   const isActiveMember = isEditing && !editingMember?.isInvite;
@@ -81,6 +81,31 @@ function InviteEmployeeForm({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [confirmRemove, setConfirmRemove] = useState(false);
+
+  // Remove o membro (ou exclui o convite) após um segundo toque de confirmação
+  const handleRemove = async () => {
+    if (!editingMember) return;
+
+    if (!confirmRemove) {
+      setConfirmRemove(true);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      await removeMember(editingMember.id, Boolean(editingMember.isInvite));
+      onDismiss();
+    } catch (err: unknown) {
+      setError(
+        (err as { message?: string })?.message ??
+          'Não foi possível remover o membro.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Salva um novo convite ou atualiza um funcionário existente no Firestore
   const handleSubmit = async () => {
@@ -396,6 +421,31 @@ function InviteEmployeeForm({
 
               {error ? (
                 <Text className="text-xs text-error">{error}</Text>
+              ) : null}
+
+              {/* Remoção do membro ou exclusão do convite (não disponível para si mesmo) */}
+              {isEditing && !isSelf ? (
+                <Pressable
+                  className="mt-1 h-11 flex-row items-center justify-center gap-2 rounded-xl active:opacity-80"
+                  style={{ borderWidth: 1, borderColor: '#BA1A1A' }}
+                  disabled={loading}
+                  onPress={handleRemove}
+                >
+                  <MaterialCommunityIcons
+                    name="account-remove-outline"
+                    size={18}
+                    color="#BA1A1A"
+                  />
+                  <Text className="text-sm font-semibold text-error">
+                    {editingMember?.isInvite
+                      ? confirmRemove
+                        ? 'Toque de novo para excluir o convite'
+                        : 'Excluir convite'
+                      : confirmRemove
+                        ? 'Toque de novo para remover da equipe'
+                        : 'Remover da equipe'}
+                  </Text>
+                </Pressable>
               ) : null}
             </View>
           </ScrollView>
