@@ -50,10 +50,11 @@ export default function GestorHomeScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('all');
   const [tasks, setTasks] = useState<ManagerTask[]>(INITIAL_TASKS);
   const [delegateVisible, setDelegateVisible] = useState(false);
 
- const filteredTasks = tasks.filter((task) => {
+const filteredTasks = tasks.filter((task) => {
   const matchesStatus =
     filter === 'all' || task.status === filter;
 
@@ -61,9 +62,12 @@ export default function GestorHomeScreen() {
     .toLowerCase()
     .includes(searchQuery.trim().toLowerCase());
 
-  return matchesStatus && matchesSearch;
-  });
+  const matchesPriority =
+    priorityFilter === 'all' ||
+    task.category === priorityFilter;
 
+  return matchesStatus && matchesSearch && matchesPriority;
+});
   const handleDelegate = (payload: DelegationPayload) => {
     setTasks((prev) => [
       {
@@ -157,7 +161,32 @@ export default function GestorHomeScreen() {
             borderRadius: 12,
             }}
             inputStyle={{ fontSize: 14 }}
-/>
+/><View className="mt-3 flex-row flex-wrap gap-2">
+  {[
+    { label: 'Todas prioridades', value: 'all' },
+    { label: 'Alta', value: 'Alta Prioridade' },
+    { label: 'Rotina', value: 'Rotina' },
+    { label: 'Baixa', value: 'Baixa' },
+  ].map((item) => (
+    <Chip
+      key={item.value}
+      selected={priorityFilter === item.value}
+      onPress={() => setPriorityFilter(item.value)}
+      style={{
+        backgroundColor:
+          priorityFilter === item.value ? '#0F2042' : '#ECEFF0',
+        borderRadius: 12,
+      }}
+      textStyle={{
+        color:
+          priorityFilter === item.value ? '#FFFFFF' : '#45464E',
+        fontSize: 12,
+      }}
+    >
+      {item.label}
+    </Chip>
+  ))}
+</View>
             {/* Chips de Filtro com Paper */}
             <ScrollView
               horizontal
