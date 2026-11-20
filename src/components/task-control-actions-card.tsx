@@ -1,3 +1,4 @@
+import type { TaskStatus } from '@/types/task';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React from 'react';
 import { Text, View } from 'react-native';
@@ -6,16 +7,14 @@ import { Button } from 'react-native-paper';
 type Props = {
   onValidateAndArchive: () => void;
   onReopenTask: () => void;
-  canArchive: boolean;
-  canReopen: boolean;
+  status: TaskStatus;
   busy: boolean;
 };
 
 export function TaskControlActionsCard({
   onValidateAndArchive,
   onReopenTask,
-  canArchive,
-  canReopen,
+  status,
   busy,
 }: Props) {
   return (
@@ -34,11 +33,13 @@ export function TaskControlActionsCard({
 
       {/* Subtítulo de Orientação para o Gestor */}
       <Text className="mt-1 text-xs leading-relaxed text-[#75777F]">
-        Se houver inconformidades, devolva a tarefa para correção imediata.
+        {status === 'archived' ? 'A tarefa foi validada e arquivada.' :
+          status === 'pending' ? 'A tarefa precisa ser concluída antes da validação.' :
+            'Se houver inconformidades, reabra a tarefa para correção.'}
       </Text>
 
       {/* Botão de Validar e Arquivar Tarefa (Ação Principal) */}
-      <Button
+      {status === 'completed' && <Button
         mode="contained"
         icon="check"
         buttonColor="#0F2042"
@@ -47,13 +48,13 @@ export function TaskControlActionsCard({
         style={{ borderRadius: 16, marginTop: 14 }}
         labelStyle={{ fontWeight: '600', fontSize: 14 }}
         onPress={onValidateAndArchive}
-        disabled={busy || !canArchive}
+        disabled={busy}
       >
         Validar e Arquivar Tarefa
-      </Button>
+      </Button>}
 
       {/* Botão de Reabertura de Tarefa (Ação Secundária) */}
-      <Button
+      {status !== 'pending' && <Button
         mode="contained"
         icon="restart"
         buttonColor="#E4EDF7"
@@ -62,10 +63,10 @@ export function TaskControlActionsCard({
         style={{ borderRadius: 16, marginTop: 10 }}
         labelStyle={{ fontWeight: '600', fontSize: 14 }}
         onPress={onReopenTask}
-        disabled={busy || !canReopen}
+        disabled={busy}
       >
         Reabrir Tarefa (Pendente)
-      </Button>
+      </Button>}
     </View>
   );
 }

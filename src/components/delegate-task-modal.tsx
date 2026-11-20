@@ -1,10 +1,11 @@
+import { getResponsiveModalContentStyle } from '@/components/responsive-modal-style';
 import { useTeam } from '@/hooks/team-context';
 import type { EmployeeMember } from '@/types/company';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRef, useState } from 'react';
 import { taskErrorMessage } from '@/services/task-service';
 import type { NewTask } from '@/types/task';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Chip, Modal, Portal } from 'react-native-paper';
 
 export type DelegationPayload = NewTask & { assignee: EmployeeMember };
@@ -31,6 +32,8 @@ function FieldLabel({ text }: { text: string }) {
 
 export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
   const { activeMembers } = useTeam();
+  const { width, height } = useWindowDimensions();
+  const narrow = width < 480;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [sector, setSector] = useState('');
@@ -97,9 +100,10 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
       <Modal
         visible={visible}
         onDismiss={handleDismiss}
-        contentContainerStyle={{ margin: 20 }}
+        contentContainerStyle={getResponsiveModalContentStyle(width, height, 640)}
       >
-        <View className="max-h-[85%] rounded-3xl bg-surface-lowest p-5 shadow-sm">
+        <View className="rounded-3xl bg-surface-lowest p-5 shadow-sm"
+          style={{ maxHeight: Math.min(Math.max(height - 48, 0), 760), width: '100%' }}>
           <View className="flex-row items-center justify-between">
             <Text className="text-lg font-bold text-on-surface">
               Delegar Tarefa
@@ -114,7 +118,7 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
           </View>
 
           <ScrollView
-            className="mt-4"
+            className="mt-4 shrink"
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -146,8 +150,8 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
                 />
               </View>
 
-              <View className="flex-row gap-2.5">
-                <View className="flex-1 gap-1">
+              <View className="gap-2.5" style={{ flexDirection: narrow ? 'column' : 'row' }}>
+                <View className="gap-1" style={{ flex: narrow ? undefined : 1 }}>
                   <FieldLabel text="Setor" />
                   <TextInput
                     className={inputClass}
@@ -159,7 +163,7 @@ export function DelegateTaskModal({ visible, onDismiss, onConfirm }: Props) {
                     placeholderTextColor="#75777F"
                   />
                 </View>
-                <View className="flex-1 gap-1">
+                <View className="gap-1" style={{ flex: narrow ? undefined : 1 }}>
                   <FieldLabel text="Prazo" />
                   <TextInput
                     className={inputClass}

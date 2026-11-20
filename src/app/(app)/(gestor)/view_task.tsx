@@ -10,9 +10,11 @@ import { ScrollView, Text, View } from 'react-native';
 import { ActivityIndicator, Snackbar } from 'react-native-paper';
 
 export default function GestorViewTaskScreen() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, taskId } = useLocalSearchParams<{ id?: string; taskId?: string }>();
+  const routeId = id ?? taskId;
+  const requestedId = Array.isArray(routeId) ? routeId[0] : routeId;
   const { tasks, loading, error, archiveTask, reopenTask, saveTaskNote } = useTasks();
-  const task = tasks.find((item) => item.id === id);
+  const task = tasks.find((item) => item.id === requestedId);
   const noteState = useTaskNotes(task);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,26 +43,31 @@ export default function GestorViewTaskScreen() {
   return (
     <View className="flex-1 bg-surface">
       <Stack.Screen options={{ headerShown: false }} />
-      <TaskDetailHeader taskId={task?.id.slice(0, 8)} />
+      <TaskDetailHeader taskId={requestedId?.slice(0, 8)} />
       {loading ? <ActivityIndicator className="m-4" /> : task ? (
         <ScrollView
+          style={{ width: '100%', maxWidth: 960, alignSelf: 'center' }}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 14 }}
           keyboardShouldPersistTaps="handled"
         >
           <TaskInfoCard task={task} />
-          <TaskNotesCard
-            key={task.id}
-            {...noteState}
-            onSaveNote={(content) => saveTaskNote(task.id, content)}
-          />
-          <TaskControlActionsCard
-            canArchive={task.status === 'completed'}
-            canReopen={task.status !== 'pending'}
-            busy={busy}
-            onValidateAndArchive={() => changeStatus('archive')}
-            onReopenTask={() => changeStatus('reopen')}
-          />
+          {task.deleting ? (
+            <Text className="text-on-surface-variant">Retome a exclusão no menu da tarefa na lista.</Text>
+          ) : (
+            <>
+              <TaskNotesCard key={task.id} {...noteState} onSaveNote={async (content) => {
+                await saveTaskNote(task.id, content);
+                setMessage('Observação adicionada.');
+              }} />
+              <TaskControlActionsCard
+                status={task.status}
+                busy={busy}
+                onValidateAndArchive={() => changeStatus('archive')}
+                onReopenTask={() => changeStatus('reopen')}
+              />
+            </>
+          )}
         </ScrollView>
       ) : (
         <Text className="p-4 text-on-surface-variant">{error ?? 'Tarefa não encontrada.'}</Text>

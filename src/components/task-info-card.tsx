@@ -1,9 +1,13 @@
 import { formatTaskDate, type Task } from '@/types/task';
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, useWindowDimensions } from 'react-native';
 
 export function TaskInfoCard({ task }: { task: Task }) {
   const isCompleted = task.status !== 'pending';
+  const { width } = useWindowDimensions();
+  const narrow = width < 480;
+  const rowStyle = { flexDirection: narrow ? 'column' : 'row' } as const;
+  const cellStyle = { flex: narrow ? undefined : 1 };
 
   return (
     <View className="rounded-3xl border border-slate-100 bg-surface-lowest p-4 shadow-sm">
@@ -43,8 +47,8 @@ export function TaskInfoCard({ task }: { task: Task }) {
       {/* Grade 2x2 com Metadados da Tarefa */}
       <View className="mt-4 gap-2.5">
         {/* Linha 1: Responsável e Prazo de Entrega */}
-        <View className="flex-row gap-2.5">
-          <View className="flex-1 rounded-2xl bg-surface-low p-3.5">
+        <View className="gap-2.5" style={rowStyle}>
+          <View className="rounded-2xl bg-surface-low p-3.5" style={cellStyle}>
             <Text className="text-[11px] font-medium text-[#75777F]">
               Responsável
             </Text>
@@ -53,7 +57,7 @@ export function TaskInfoCard({ task }: { task: Task }) {
             </Text>
           </View>
 
-          <View className="flex-1 rounded-2xl bg-surface-low p-3.5">
+          <View className="rounded-2xl bg-surface-low p-3.5" style={cellStyle}>
             <Text className="text-[11px] font-medium text-[#75777F]">
               Prazo de Entrega
             </Text>
@@ -64,8 +68,8 @@ export function TaskInfoCard({ task }: { task: Task }) {
         </View>
 
         {/* Linha 2: Criado em e Conclusão */}
-        <View className="flex-row gap-2.5">
-          <View className="flex-1 rounded-2xl bg-surface-low p-3.5">
+        <View className="gap-2.5" style={rowStyle}>
+          <View className="rounded-2xl bg-surface-low p-3.5" style={cellStyle}>
             <Text className="text-[11px] font-medium text-[#75777F]">
               Criado em
             </Text>
@@ -74,7 +78,7 @@ export function TaskInfoCard({ task }: { task: Task }) {
             </Text>
           </View>
 
-          <View className="flex-1 rounded-2xl bg-surface-low p-3.5">
+          <View className="rounded-2xl bg-surface-low p-3.5" style={cellStyle}>
             <Text className="text-[11px] font-medium text-[#75777F]">
               Conclusão
             </Text>

@@ -9,10 +9,15 @@ type Props = {
   notes: TaskNote[];
   loading: boolean;
   error: string | null;
+  title?: string;
+  emptyMessage?: string;
   onSaveNote?: (content: string) => Promise<void>;
 };
 
-export function TaskNotesCard({ notes, loading, error, onSaveNote }: Props) {
+export function TaskNotesCard({
+  notes, loading, error, onSaveNote,
+  title = 'Observações da Chefia', emptyMessage = 'Nenhuma observação.',
+}: Props) {
   const [inputText, setInputText] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -46,7 +51,7 @@ export function TaskNotesCard({ notes, loading, error, onSaveNote }: Props) {
             color="#191C1E"
           />
           <Text className="text-base font-bold text-on-surface">
-            Observações da Chefia
+            {title}
           </Text>
         </View>
 
@@ -57,7 +62,7 @@ export function TaskNotesCard({ notes, loading, error, onSaveNote }: Props) {
 
       {error || loading || notes.length === 0 ? (
         <Text className={error ? 'mt-3 text-xs text-error' : 'mt-3 text-xs text-on-surface-variant'}>
-          {error ?? (loading ? 'Carregando observações…' : 'Nenhuma observação.')}
+          {error ?? (loading ? 'Carregando observações…' : emptyMessage)}
         </Text>
       ) : null}
 

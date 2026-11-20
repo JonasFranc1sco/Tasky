@@ -9,14 +9,16 @@ export function useTaskCompletion() {
   const busy = useRef(false);
 
   async function complete(id: string) {
-    if (busy.current) return;
+    if (busy.current) return false;
     busy.current = true;
     setCompletingId(id);
     setCompletionError(null);
     try {
       await completeTask(id);
+      return true;
     } catch (cause) {
       setCompletionError(taskErrorMessage(cause, 'Não foi possível concluir a tarefa.'));
+      return false;
     } finally {
       busy.current = false;
       setCompletingId(null);
