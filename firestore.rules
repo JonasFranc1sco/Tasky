@@ -240,7 +240,7 @@ service cloud.firestore {
               && request.resource.data.status == 'completed'
               && validTaskStatusUpdate()));
 
-        allow delete: if false;
+        allow delete: if isActiveMemberOf(companyId) && isAdminOf(companyId);
 
         // ---------- tasks/{taskId}/messages/{messageId} ----------
         match /messages/{messageId} {
@@ -266,7 +266,8 @@ service cloud.firestore {
             && isAdminOf(companyId)
             && validNoteCreate();
 
-          allow update, delete: if false;
+          allow update: if false;
+          allow delete: if isActiveMemberOf(companyId) && isAdminOf(companyId);
         }
       }
     }
