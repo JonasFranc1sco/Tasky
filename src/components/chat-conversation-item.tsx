@@ -22,8 +22,8 @@ export function ChatConversationItem({
   const otherUid =
     conversation.participants.find((uid) => uid !== currentUid) ?? currentUid;
 
-  const participant = conversation.participantDetails?.[otherUid] ??
-    fallbackParticipant ?? {
+  const participant = fallbackParticipant ??
+    conversation.participantDetails?.[otherUid] ?? {
       uid: otherUid,
       name: 'Colaborador',
       jobTitle: 'Equipe',

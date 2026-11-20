@@ -92,12 +92,25 @@ service cloud.firestore {
         (userId == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['name', 'jobTitle', 'sector', 'companyName', 'updatedAt']))
-        // Admin da empresa: edita membros, sem movê-los para outra empresa
+        // Próprio usuário sincroniza somente o e-mail já confirmado no Authentication
+        || (userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['email', 'updatedAt'])
+          && request.resource.data.email == request.auth.token.email)
+        // Admin da empresa: edita membros sem movê-los nem remover o próprio admin
         || (isAdminOf(resource.data.companyId)
-          && request.resource.data.companyId == resource.data.companyId)
+          && request.resource.data.companyId == resource.data.companyId
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'jobTitle', 'sector', 'role', 'status', 'updatedAt'])
+          && (userId != request.auth.uid
+            || (request.resource.data.role == resource.data.role
+              && request.resource.data.get('status', 'active')
+                == resource.data.get('status', 'active'))))
       );
 
-      allow delete: if isAdminOf(resource.data.companyId);
+      // Admin remove membros da empresa, mas não a si mesmo
+      allow delete: if isAdminOf(resource.data.companyId)
+        && userId != request.auth.uid;
     }
 
     // ---------- companies/{companyId} ----------
@@ -232,7 +245,7 @@ service cloud.firestore {
               && request.resource.data.status == 'completed'
               && validTaskStatusUpdate()));
 
-        allow delete: if false;
+        allow delete: if isActiveMemberOf(companyId) && isAdminOf(companyId);
 
         // ---------- tasks/{taskId}/messages/{messageId} ----------
         match /messages/{messageId} {
@@ -258,7 +271,8 @@ service cloud.firestore {
             && isAdminOf(companyId)
             && validNoteCreate();
 
-          allow update, delete: if false;
+          allow update: if false;
+          allow delete: if isActiveMemberOf(companyId) && isAdminOf(companyId);
         }
       }
     }

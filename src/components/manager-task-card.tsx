@@ -21,9 +21,10 @@ type Props = {
   task: ManagerTask;
   onPress?: () => void;
   onToggleStatus?: () => void;
+  onDelete?: () => void;
 };
 
-export function ManagerTaskCard({ task, onPress, onToggleStatus }: Props) {
+export function ManagerTaskCard({ task, onPress, onToggleStatus, onDelete }: Props) {
   const [menuVisible, setMenuVisible] = useState(false);
   const isCompleted = task.status === 'completed';
 
@@ -35,6 +36,11 @@ export function ManagerTaskCard({ task, onPress, onToggleStatus }: Props) {
   const toggleStatus = () => {
     setMenuVisible(false);
     onToggleStatus?.();
+  };
+
+  const deleteTask = () => {
+    setMenuVisible(false);
+    onDelete?.();
   };
 
   return (
@@ -91,6 +97,13 @@ export function ManagerTaskCard({ task, onPress, onToggleStatus }: Props) {
               leadingIcon={isCompleted ? 'restart' : 'check'}
               title={isCompleted ? 'Reabrir tarefa' : 'Concluir tarefa'}
               onPress={toggleStatus}
+            />
+          )}
+          {onDelete && (
+            <Menu.Item
+              leadingIcon="delete-outline"
+              title="Excluir tarefa"
+              onPress={deleteTask}
             />
           )}
         </Menu>
