@@ -30,6 +30,7 @@ type TasksContextValue = {
   addTask: (task: NewTask) => Promise<void>;
   completeTask: (id: string) => Promise<void>;
   updateTaskStatus: (id: string, status: TaskStatus) => Promise<void>;
+  archiveTask: (id: string) => Promise<void>;
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
@@ -107,7 +108,28 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       ) {
         throw new Error('Você não tem permissão para atualizar esta tarefa.');
       }
-      await TaskService.updateTaskStatus(profile.companyId, id, status);
+      await TaskService.updateTaskStatus(
+        profile.companyId,
+        id,
+        status,
+        profile.role === 'admin' && status === 'pending' && !!task.archivedAt
+      );
+    },
+    [profile, visibleTasks]
+  );
+
+  const archiveTask = useCallback(
+    async (id: string) => {
+      if (profile?.role !== 'admin' || !profile.companyId) {
+        throw new Error('Apenas gestores podem validar e arquivar tarefas.');
+      }
+      const task = visibleTasks.find((item) => item.id === id);
+      if (!task) throw new Error('Tarefa não encontrada.');
+      if (!task.completedAt) {
+        throw new Error('A tarefa precisa ser concluída antes de ser arquivada.');
+      }
+      if (task.archivedAt) return;
+      await TaskService.archiveTask(profile.companyId, id);
     },
     [profile, visibleTasks]
   );
@@ -149,8 +171,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       addTask,
       completeTask,
       updateTaskStatus,
+      archiveTask,
     }),
-    [visibleTasks, metrics, currentSnapshot, addTask, completeTask, updateTaskStatus]
+    [visibleTasks, metrics, currentSnapshot, addTask, completeTask, updateTaskStatus, archiveTask]
   );
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;

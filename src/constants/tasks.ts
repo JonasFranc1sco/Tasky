@@ -16,6 +16,7 @@ export type Task = {
   dueDate: string;
   assignee: Assignee;
   completedAt: string | null;
+  archivedAt?: string | null;
   priority?: 'alta' | 'media' | 'baixa';
   sector?: string;
   checklist?: { done: number; total: number; location: string };

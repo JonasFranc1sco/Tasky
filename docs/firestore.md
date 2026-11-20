@@ -60,9 +60,10 @@ Mini chat entre membros da mesma empresa (`ChatService`). A conversa guarda
 
 Tarefas delegadas ficam dentro da empresa. O documento guarda título, descrição,
 prazo, setor, prioridade, `assigneeUid`, `assigneeName`, status, `createdByUid`,
-`createdAt`, `completedAt` e `updatedAt`. A tela do gestor acompanha a coleção da
-empresa; a fila do colaborador consulta apenas documentos cujo `assigneeUid` é
-seu UID.
+`createdAt`, `completedAt`, `archivedAt` e `updatedAt`. `completedAt` registra a
+conclusão pelo responsável; `archivedAt` registra a validação e o arquivamento
+posteriores pelo gestor. A tela do gestor acompanha a coleção da empresa; a fila
+do colaborador consulta apenas documentos cujo `assigneeUid` é seu UID.
 
 As mensagens de uma tarefa ficam em sua subcoleção `messages`, com autor, cargo,
 UID do autor, conteúdo e `createdAt`. A lista de mensagens é sincronizada em
@@ -84,8 +85,8 @@ O arquivo local `firestore.rules` contém as regras ativas copiadas do projeto
 `tasky-60a18` e as permissões para tasks e mensagens. Essas regras já estão
 publicadas no Firestore do projeto.
 
-Gestores ativos podem criar tarefas, consultar as tarefas da empresa e alterar
-apenas status e datas de conclusão. Colaboradores ativos podem consultar e
+Gestores ativos podem criar tarefas, consultar as tarefas da empresa, validar e
+arquivar tarefas concluídas e reabri-las. Colaboradores ativos podem consultar e
 concluir apenas tarefas atribuídas ao próprio UID; por isso, a consulta do app
 filtra por `assigneeUid`. Mensagens são legíveis pelo gestor e pelo responsável
 da tarefa, mas apenas gestores podem criá-las. Exclusão de tarefas e edição ou

@@ -318,5 +318,6 @@ function toManagerTask(task: Task): ManagerTask {
             : undefined),
     createdAt: task.createdAt,
     completedAt: task.completedAt ?? undefined,
+    archivedAt: task.archivedAt ?? undefined,
   };
 }

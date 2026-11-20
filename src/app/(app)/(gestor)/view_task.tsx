@@ -13,7 +13,13 @@ export default function GestorViewTaskScreen() {
   const router = useRouter();
   const { taskId } = useLocalSearchParams<{ taskId?: string }>();
   const requestedTaskId = Array.isArray(taskId) ? taskId[0] : taskId;
-  const { tasks, loading: tasksLoading, error: tasksError, updateTaskStatus } = useTasks();
+  const {
+    tasks,
+    loading: tasksLoading,
+    error: tasksError,
+    updateTaskStatus,
+    archiveTask,
+  } = useTasks();
   const selectedTask = tasks.find((item) => item.id === requestedTaskId);
   const { notes, loading: notesLoading, error: notesError, addNote } =
     useTaskNotes(selectedTask?.id ?? null);
@@ -27,7 +33,7 @@ export default function GestorViewTaskScreen() {
   const handleValidateAndArchive = async () => {
     if (!selectedTask) return;
     try {
-      await updateTaskStatus(selectedTask.id, 'completed');
+      await archiveTask(selectedTask.id);
       setSnackbarMessage('Tarefa validada e arquivada.');
     } catch (error) {
       setSnackbarMessage(
@@ -114,6 +120,7 @@ export default function GestorViewTaskScreen() {
         {/* Card de Ações de Controle (Validação e Reabertura) */}
         <TaskControlActionsCard
           isCompleted={task.status === 'completed'}
+          isArchived={!!selectedTask.archivedAt}
           onValidateAndArchive={handleValidateAndArchive}
           onReopenTask={handleReopenTask}
         />

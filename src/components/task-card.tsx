@@ -31,7 +31,9 @@ export function TaskCard({ task, onPress, onComplete }: Props) {
           </View>
         </View>
         <View className="rounded-full bg-surface-container px-2 py-0.5">
-          <Text className="text-[11px] font-semibold text-on-surface-variant">Validada</Text>
+          <Text className="text-[11px] font-semibold text-on-surface-variant">
+            {task.archivedAt ? 'Validada' : 'Aguardando validação'}
+          </Text>
         </View>
       </View>
         );

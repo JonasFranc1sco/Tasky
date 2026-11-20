@@ -13,6 +13,7 @@ export type ManagerTask = {
   category?: string;
   createdAt?: string;
   completedAt?: string;
+  archivedAt?: string;
 };
 
 type Props = {
@@ -58,6 +59,11 @@ export function ManagerTaskCard({ task, onPress, onToggleStatus }: Props) {
               {task.category}
             </Text>
           )}
+          {task.archivedAt ? (
+            <Text className="rounded-full bg-surface-high px-2 py-1 text-[10px] font-semibold text-on-surface-variant">
+              Arquivada
+            </Text>
+          ) : null}
         </Pressable>
 
         <Menu

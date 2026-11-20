@@ -21,6 +21,7 @@ type StoredTask = DocumentData & {
   assigneeUid?: string;
   assigneeName?: string;
   completedAt?: Timestamp | null;
+  archivedAt?: Timestamp | null;
   createdAt?: Timestamp;
 };
 
@@ -39,6 +40,7 @@ function toTask(id: string, data: StoredTask): Task {
       uid: data.assigneeUid,
     },
     completedAt: asIsoString(data.completedAt),
+    archivedAt: asIsoString(data.archivedAt),
     createdAt: asIsoString(data.createdAt) ?? undefined,
     priority: data.priority,
     sector: data.sector,
@@ -115,6 +117,7 @@ export class TaskService {
       category: task.category ?? 'Rotina',
       status: 'pending',
       completedAt: null,
+      archivedAt: null,
       createdByUid,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -124,11 +127,21 @@ export class TaskService {
   static async updateTaskStatus(
     companyId: string,
     taskId: string,
-    status: 'pending' | 'completed'
+    status: 'pending' | 'completed',
+    clearArchivedAt = false
   ) {
-    await updateDoc(doc(db, 'companies', companyId, 'tasks', taskId), {
+    const updates: DocumentData = {
       status,
       completedAt: status === 'completed' ? serverTimestamp() : null,
+      updatedAt: serverTimestamp(),
+    };
+    if (clearArchivedAt) updates.archivedAt = null;
+    await updateDoc(doc(db, 'companies', companyId, 'tasks', taskId), updates);
+  }
+
+  static async archiveTask(companyId: string, taskId: string) {
+    await updateDoc(doc(db, 'companies', companyId, 'tasks', taskId), {
+      archivedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
   }
