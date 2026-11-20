@@ -6,12 +6,14 @@ type Props = {
   message: ChatMessage;
   isOwnMessage: boolean;
   recipientUid?: string;
+  senderName?: string;
 };
 
 export function ChatMessageBubble({
   message,
   isOwnMessage,
   recipientUid,
+  senderName = message.senderName,
 }: Props) {
   const timeLabel = formatChatTimestamp(message.createdAt);
   const isReadByRecipient = recipientUid
@@ -32,7 +34,7 @@ export function ChatMessageBubble({
         {/* Identificação do remetente em mensagens recebidas */}
         {!isOwnMessage && (
           <Text className="mb-0.5 text-[11px] font-bold text-primary">
-            {message.senderName}
+            {senderName}
           </Text>
         )}
 
