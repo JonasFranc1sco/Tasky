@@ -92,11 +92,16 @@ service cloud.firestore {
         (userId == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['name', 'jobTitle', 'sector', 'companyName', 'updatedAt']))
-        // Admin da empresa: edita membros, sem movê-los para outra empresa.
-        // O admin não altera a própria função nem o próprio status,
-        // para a empresa não ficar sem administrador.
+        // Próprio usuário sincroniza somente o e-mail já confirmado no Authentication
+        || (userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['email', 'updatedAt'])
+          && request.resource.data.email == request.auth.token.email)
+        // Admin da empresa: edita membros sem movê-los nem remover o próprio admin
         || (isAdminOf(resource.data.companyId)
           && request.resource.data.companyId == resource.data.companyId
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'jobTitle', 'sector', 'role', 'status', 'updatedAt'])
           && (userId != request.auth.uid
             || (request.resource.data.role == resource.data.role
               && request.resource.data.get('status', 'active')

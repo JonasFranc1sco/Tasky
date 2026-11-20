@@ -47,7 +47,7 @@ export default function ChatListScreen() {
       const otherUid =
         conv.participants.find((id) => id !== currentUid) ?? currentUid;
       const details =
-        conv.participantDetails?.[otherUid] ?? membersByUid[otherUid];
+        membersByUid[otherUid] ?? conv.participantDetails?.[otherUid];
       const nameMatch = details?.name?.toLowerCase().includes(q);
       const messageMatch = conv.lastMessage?.toLowerCase().includes(q);
       return Boolean(nameMatch || messageMatch);

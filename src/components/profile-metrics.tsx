@@ -8,6 +8,8 @@ type Props = {
   deliveredSuffix: string;
   shiftLabel: string;
   shiftHours: string;
+  loading: boolean;
+  error: string | null;
 };
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -26,12 +28,15 @@ export function ProfileMetrics({
   deliveredSuffix,
   shiftLabel,
   shiftHours,
+  loading,
+  error,
 }: Props) {
   const { width } = useWindowDimensions();
   const isWide = width >= 600;
+  const unavailable = loading || Boolean(error);
   const metrics: Metric[] = [
-    { icon: 'check-decagram', value: `${completion}%`, caption: 'Conclusão' },
-    { icon: 'checkbox-marked-circle-outline', value: `${delivered}`, suffix: deliveredSuffix, caption: 'Entregues' },
+    { icon: 'check-decagram', value: unavailable ? '—' : `${completion}%`, caption: 'Conclusão' },
+    { icon: 'checkbox-marked-circle-outline', value: unavailable ? '—' : `${delivered}`, suffix: deliveredSuffix, caption: 'Entregues' },
     { icon: 'clock-outline', value: shiftLabel, caption: shiftHours, valueSmall: true },
   ];
 
@@ -72,6 +77,9 @@ export function ProfileMetrics({
           </View>
         ))}
       </View>
+      {error ? (
+        <Text className="mt-2 text-[11px] text-error">{error}</Text>
+      ) : null}
     </View>
   );
 }

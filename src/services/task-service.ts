@@ -3,13 +3,17 @@ import type { Task, TaskNote } from '@/constants/tasks';
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
+  getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   updateDoc,
   where,
+  writeBatch,
   type DocumentData,
   type Timestamp,
 } from 'firebase/firestore';
@@ -144,6 +148,23 @@ export class TaskService {
       archivedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+  }
+
+  static async deleteTask(companyId: string, taskId: string) {
+    const taskRef = doc(db, 'companies', companyId, 'tasks', taskId);
+    const messagesRef = collection(taskRef, 'messages');
+    const batchSize = 450;
+
+    while (true) {
+      const messages = await getDocs(query(messagesRef, limit(batchSize)));
+      if (messages.empty) break;
+
+      const batch = writeBatch(db);
+      messages.docs.forEach((message) => batch.delete(message.ref));
+      await batch.commit();
+    }
+
+    await deleteDoc(taskRef);
   }
 
   static subscribeToTaskNotes(

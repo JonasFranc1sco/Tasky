@@ -116,7 +116,10 @@ function InviteEmployeeForm({
       return;
     }
 
-    if (!isEditing && (!email.trim() || !email.includes('@'))) {
+    if (
+      (!isEditing || editingMember?.isInvite) &&
+      (!email.trim() || !email.includes('@'))
+    ) {
       setError('Informe um e-mail corporativo válido.');
       return;
     }
@@ -257,18 +260,23 @@ function InviteEmployeeForm({
                   E-mail corporativo
                 </Text>
                 <TextInput
-                  className={inputClass}
+                  className={`${inputClass}${isActiveMember ? ' opacity-60' : ''}`}
                   value={email}
                   onChangeText={setEmail}
                   // O e-mail de login de um membro ativo fica no Firebase Authentication
                   // e não pode ser alterado por aqui
                   editable={!isActiveMember}
-                  style={isActiveMember ? { opacity: 0.6 } : undefined}
                   autoCapitalize="none"
                   keyboardType="email-address"
                   placeholder="Ex.: jonas@dubaisoftwarehouse.com.br"
                   placeholderTextColor="#75777F"
                 />
+                {isActiveMember ? (
+                  <Text className="px-1 text-[10px] text-on-surface-variant">
+                    Para alterar o e-mail de acesso, o próprio colaborador deve
+                    fazer a mudança em Segurança &amp; Conta.
+                  </Text>
+                ) : null}
               </View>
 
               <View className="gap-2.5" style={{ flexDirection: isNarrow ? 'column' : 'row' }}>

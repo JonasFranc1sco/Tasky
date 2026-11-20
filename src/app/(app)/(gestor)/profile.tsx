@@ -1,6 +1,7 @@
 import { ManagerStatCard } from '@/components/manager-stat-card';
 import { ProfileHeroCard } from '@/components/profile-hero-card';
 import {
+  ChangeEmailModal,
   ChangePasswordModal,
   EditPersonalInfoModal,
   TermsPrivacyModal,
@@ -37,6 +38,7 @@ export default function AdminProfileScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [reopenAlertsEnabled, setReopenAlertsEnabled] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [emailModalVisible, setEmailModalVisible] = useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [termsModalVisible, setTermsModalVisible] = useState(false);
 
@@ -107,6 +109,13 @@ export default function AdminProfileScreen() {
                 subtitle={taskMetrics.completedPercentage}
               />
             </View>
+            <View style={{ width: isWideMetrics ? undefined : '48%', flexGrow: isWideMetrics ? 1 : 0 }}>
+              <ManagerStatCard
+                title="Arquivadas"
+                value={taskMetrics.archived}
+                subtitle="Tarefas validadas"
+              />
+            </View>
           </View>
         </View>
 
@@ -122,7 +131,7 @@ export default function AdminProfileScreen() {
           <ProfileRow
             icon="clipboard-text-outline"
             title="Tarefas da Equipe"
-            subtitle={`${taskMetrics.total} tarefas cadastradas`}
+            subtitle={`${taskMetrics.total} tarefas • ${taskMetrics.archived} arquivadas`}
             onPress={() => router.push('/(app)/(gestor)/home')}
             right={CHEVRON}
           />
@@ -159,6 +168,14 @@ export default function AdminProfileScreen() {
         </ProfileSection>
 
         <ProfileSection title="Segurança & Conta">
+          <ProfileRow
+            icon="email-outline"
+            title="Alterar E-mail de Acesso"
+            subtitle={profile?.email ?? ''}
+            onPress={() => setEmailModalVisible(true)}
+            right={CHEVRON}
+            divider
+          />
           <ProfileRow
             icon="lock-reset"
             title="Alterar Senha de Acesso"
@@ -200,6 +217,10 @@ export default function AdminProfileScreen() {
       <EditPersonalInfoModal
         visible={editModalVisible}
         onDismiss={() => setEditModalVisible(false)}
+      />
+      <ChangeEmailModal
+        visible={emailModalVisible}
+        onDismiss={() => setEmailModalVisible(false)}
       />
       <ChangePasswordModal
         visible={passwordModalVisible}

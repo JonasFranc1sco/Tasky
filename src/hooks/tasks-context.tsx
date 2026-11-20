@@ -17,6 +17,7 @@ export type TaskMetrics = {
   total: number;
   pending: number;
   completed: number;
+  archived: number;
   completedPercentage: string;
 };
 
@@ -31,6 +32,7 @@ type TasksContextValue = {
   completeTask: (id: string) => Promise<void>;
   updateTaskStatus: (id: string, status: TaskStatus) => Promise<void>;
   archiveTask: (id: string) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
@@ -134,6 +136,19 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     [profile, visibleTasks]
   );
 
+  const deleteTask = useCallback(
+    async (id: string) => {
+      if (profile?.role !== 'admin' || !profile.companyId) {
+        throw new Error('Apenas gestores podem excluir tarefas.');
+      }
+      if (!visibleTasks.some((task) => task.id === id)) {
+        throw new Error('Tarefa não encontrada.');
+      }
+      await TaskService.deleteTask(profile.companyId, id);
+    },
+    [profile, visibleTasks]
+  );
+
   const completeTask = useCallback(
     (id: string) => updateTaskStatus(id, 'completed'),
     [updateTaskStatus]
@@ -151,11 +166,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   const metrics = useMemo<TaskMetrics>(() => {
     const completed = visibleTasks.filter((task) => task.completedAt).length;
+    const archived = visibleTasks.filter((task) => task.archivedAt).length;
     const total = visibleTasks.length;
     return {
       total,
       pending: total - completed,
       completed,
+      archived,
       completedPercentage: `${
         total === 0 ? 0 : Math.round((completed / total) * 100)
       }% concluído`,
@@ -172,8 +189,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       completeTask,
       updateTaskStatus,
       archiveTask,
+      deleteTask,
     }),
-    [visibleTasks, metrics, currentSnapshot, addTask, completeTask, updateTaskStatus, archiveTask]
+    [visibleTasks, metrics, currentSnapshot, addTask, completeTask, updateTaskStatus, archiveTask, deleteTask]
   );
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;

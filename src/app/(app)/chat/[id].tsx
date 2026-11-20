@@ -1,5 +1,6 @@
 import { ChatMessageBubble } from '@/components/chat-message-bubble';
 import { useAuth } from '@/hooks/auth-context';
+import { useTeam } from '@/hooks/team-context';
 import { ChatService, MESSAGES_PAGE_SIZE } from '@/services/chat-service';
 import type { ChatMessage, Conversation } from '@/types/chat';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -21,6 +22,7 @@ export default function ChatRoomScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useAuth();
+  const { activeMembers } = useTeam();
 
   const conversationId = String(id ?? '');
   const currentUid = profile?.uid || profile?.id || '';
@@ -104,7 +106,18 @@ export default function ChatRoomScreen() {
     [conversation?.participants, currentUid]
   );
 
-  const recipientInfo = conversation?.participantDetails?.[recipientUid];
+  const liveRecipient = activeMembers.find(
+    (member) => (member.uid || member.id) === recipientUid
+  );
+  const recipientInfo = liveRecipient
+    ? {
+        uid: recipientUid,
+        name: liveRecipient.name,
+        jobTitle: liveRecipient.jobTitle,
+        sector: liveRecipient.sector,
+        initials: liveRecipient.initials,
+      }
+    : conversation?.participantDetails?.[recipientUid];
 
   // Carrega o histórico anterior ao rolar até o topo da conversa
   const handleLoadOlder = useCallback(async () => {
@@ -232,6 +245,7 @@ export default function ChatRoomScreen() {
                 message={item}
                 isOwnMessage={item.senderId === currentUid}
                 recipientUid={recipientUid}
+                senderName={recipientInfo?.name}
               />
             )}
             ListFooterComponent={

@@ -16,22 +16,23 @@ export default function TaskQueueScreen() {
     const { tasks, loading, error, completeTask } = useTasks();
     const [tab, setTab] = useState<'pending' | 'completed'>('pending');
 
-    const assignedTasks = tasks.filter((task) =>
-      task.assignee.uid
-        ? task.assignee.uid === profile?.uid
-        : task.assignee.name === 'Colaborador' || task.assignee.name === profile?.name
-    );
+    const assignedTasks = tasks;
     const pending = assignedTasks.filter((t) => !t.completedAt);
     const completed = assignedTasks.filter((t) => t.completedAt);
     const list = tab === 'pending' ? pending : completed;
     const highPriorities = pending.filter((t) => t.priority === 'alta').length;
-    const weekStart = new Date();
+    const now = new Date();
+    const weekStart = new Date(now);
     weekStart.setDate(weekStart.getDate() - weekStart.getDay());
     weekStart.setHours(0, 0, 0, 0);
     const completedThisWeek = assignedTasks.filter((task) => {
       if (!task.completedAt) return false;
-      const completedAt = new Date(task.completedAt);
-      return !Number.isNaN(completedAt.getTime()) && completedAt >= weekStart;
+      const completedAt = new Date(task.completedAt).getTime();
+      return (
+        Number.isFinite(completedAt) &&
+        completedAt >= weekStart.getTime() &&
+        completedAt <= now.getTime()
+      );
     }).length;
 
     const handleComplete = (id: string) => {
@@ -90,7 +91,7 @@ export default function TaskQueueScreen() {
             </View>
           </>
         }
-        ListFooterComponent={tab === 'completed' ? <WeeklyGoalCard done={completedThisWeek} total={9} /> : null}
+        ListFooterComponent={tab === 'completed' ? <WeeklyGoalCard done={completedThisWeek} total={assignedTasks.length} /> : null}
         renderItem={({ item }) => (
           <View style={{ flex: 1, maxWidth: numColumns > 1 ? '49%' : '100%' }}>
             <TaskCard task={item} onPress={() => router.push(`/task/${item.id}`)} onComplete={handleComplete} />
