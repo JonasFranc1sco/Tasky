@@ -1,214 +1,236 @@
 import { db } from '@/config/firebase';
-import type { Task, TaskNote } from '@/constants/tasks';
+import type { EmployeeMember } from '@/types/company';
+import type { NewTask, Task, TaskNote, TaskPriority } from '@/types/task';
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
-  getDocs,
+  getDocsFromServer,
   limit,
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
-  updateDoc,
   where,
   writeBatch,
-  type DocumentData,
-  type Timestamp,
 } from 'firebase/firestore';
 
-type StoredTask = DocumentData & {
+export type TaskAccess = { uid: string; companyId: string; isAdmin: boolean };
+type TaskAction = 'complete' | 'archive' | 'reopen';
+
+const storedPriorities = {
+  'Alta Prioridade': 'alta',
+  Rotina: 'media',
+  Baixa: 'baixa',
+} as const satisfies Record<TaskPriority, string>;
+
+type StoredPriority = (typeof storedPriorities)[TaskPriority];
+type StoredTask = Partial<Omit<Task, 'id' | 'companyId' | 'title' | 'priority' | 'status' | 'reopenedAt'>> & {
   name?: string;
-  description?: string;
-  dueDate?: string;
-  assigneeUid?: string;
-  assigneeName?: string;
-  completedAt?: Timestamp | null;
-  archivedAt?: Timestamp | null;
-  createdAt?: Timestamp;
+  priority?: StoredPriority;
+  status?: 'pending' | 'completed';
 };
 
-function asIsoString(value?: Timestamp | null) {
-  return value?.toDate?.().toISOString() ?? null;
+const taskPriorities: Record<StoredPriority, TaskPriority> = {
+  alta: 'Alta Prioridade',
+  media: 'Rotina',
+  baixa: 'Baixa',
+};
+
+function tasksCollection(companyId: string) {
+  return collection(db, 'companies', companyId, 'tasks');
 }
 
-function toTask(id: string, data: StoredTask): Task {
+function storedTaskStatus(task: StoredTask) {
+  return task.status ?? (task.completedAt ? 'completed' : 'pending');
+}
+
+function toTask(companyId: string, taskId: string, data: StoredTask): Task {
+  const status = storedTaskStatus(data);
+  const wasReopened = status === 'pending' && data.updatedAt && data.createdAt
+    && data.updatedAt.toMillis() > data.createdAt.toMillis();
+
   return {
-    id,
-    name: data.name ?? '',
+    id: taskId,
+    companyId,
+    assigneeUid: data.assigneeUid ?? '',
+    assigneeName: data.assigneeName ?? 'Colaborador',
+    createdByUid: data.createdByUid ?? '',
+    title: data.name ?? '',
     description: data.description ?? '',
+    sector: data.sector ?? '',
     dueDate: data.dueDate ?? '',
-    assignee: {
-      name: data.assigneeName ?? 'Colaborador',
-      uid: data.assigneeUid,
-    },
-    completedAt: asIsoString(data.completedAt),
-    archivedAt: asIsoString(data.archivedAt),
-    createdAt: asIsoString(data.createdAt) ?? undefined,
-    priority: data.priority,
-    sector: data.sector,
-    checklist: data.checklist,
-    reopened: data.reopened,
+    priority: (data.priority && taskPriorities[data.priority]) ?? 'Rotina',
+    status: status === 'completed' && data.archivedAt ? 'archived' : status,
+    createdAt: data.createdAt ?? null,
+    updatedAt: data.updatedAt ?? null,
+    completedAt: data.completedAt ?? null,
+    archivedAt: data.archivedAt ?? null,
+    reopened: status === 'pending' && (Boolean(wasReopened) || data.reopened === true),
+    reopenedAt: wasReopened ? data.updatedAt ?? null : null,
     reopenReason: data.reopenReason,
-    category: data.category,
+    checklist: data.checklist,
+    deleting: data.deleting === true,
   };
 }
 
-function toTaskNote(id: string, data: DocumentData): TaskNote {
-  const createdAt = data.createdAt as Timestamp | undefined;
-  return {
-    id,
-    author: typeof data.author === 'string' ? data.author : 'Gestor',
-    authorUid: typeof data.authorUid === 'string' ? data.authorUid : undefined,
-    role: typeof data.role === 'string' ? data.role : 'Supervisor',
-    timestamp: createdAt?.toDate
-      ? createdAt.toDate().toLocaleString('pt-BR', {
-          dateStyle: 'short',
-          timeStyle: 'short',
-        })
-      : 'Agora',
-    content: typeof data.content === 'string' ? data.content : '',
-  };
+export function subscribeToTasks(
+  access: TaskAccess,
+  onTasks: (tasks: Task[]) => void,
+  onError: (error: Error) => void
+) {
+  const companyTasks = tasksCollection(access.companyId);
+  const tasksQuery = access.isAdmin
+    ? companyTasks
+    : query(companyTasks, where('assigneeUid', '==', access.uid));
+
+  return onSnapshot(tasksQuery, (snapshot) => {
+    const tasks = snapshot.docs.map((item) => toTask(
+      access.companyId,
+      item.id,
+      item.data({ serverTimestamps: 'estimate' }) as StoredTask
+    ));
+    tasks.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
+    onTasks(tasks);
+  }, onError);
 }
 
-export class TaskService {
-  static subscribeToCompanyTasks(
-    companyId: string,
-    userUid: string,
-    isAdmin: boolean,
-    onUpdate: (tasks: Task[]) => void,
-    onError?: (error: Error) => void
-  ) {
-    const tasksRef = collection(db, 'companies', companyId, 'tasks');
-    const tasksQuery = isAdmin
-      ? query(tasksRef)
-      : query(tasksRef, where('assigneeUid', '==', userUid));
-
-    return onSnapshot(
-      tasksQuery,
-      (snapshot) => {
-        const tasks = snapshot.docs
-          .map((item) => toTask(item.id, item.data()))
-          .sort((a, b) =>
-            (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
-          );
-        onUpdate(tasks);
-      },
-      (error) => onError?.(error)
-    );
+export async function createTask(access: TaskAccess, input: NewTask, assignee: EmployeeMember) {
+  if (!access.isAdmin || assignee.companyId !== access.companyId ||
+      assignee.status !== 'active' || assignee.isInvite || !assignee.uid) {
+    throw new Error('Selecione um membro ativo da sua empresa.');
   }
 
-  static async createTask(
-    companyId: string,
-    createdByUid: string,
-    task: Omit<Task, 'id' | 'createdAt' | 'completedAt'>
-  ) {
-    const assigneeUid = task.assignee.uid;
-    if (!assigneeUid) {
-      throw new Error('Selecione um colaborador com conta ativa.');
+  await addDoc(tasksCollection(access.companyId), {
+    name: input.title,
+    description: input.description,
+    sector: input.sector,
+    dueDate: input.dueDate,
+    priority: storedPriorities[input.priority],
+    category: input.priority,
+    assigneeUid: assignee.uid,
+    assigneeName: assignee.name,
+    createdByUid: access.uid,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    completedAt: null,
+    archivedAt: null,
+  });
+}
+
+export async function changeTaskStatus(access: TaskAccess, taskId: string, action: TaskAction) {
+  const ref = doc(tasksCollection(access.companyId), taskId);
+  await runTransaction(db, async (transaction) => {
+    const task = (await transaction.get(ref)).data() as StoredTask | undefined;
+    if (!task) {
+      throw new Error('Tarefa não encontrada para sua empresa.');
+    }
+    if (task.deleting) {
+      throw new Error('A tarefa está em processo de exclusão.');
+    }
+    const status = storedTaskStatus(task);
+
+    if (action === 'complete') {
+      if (!access.isAdmin && task.assigneeUid !== access.uid) {
+        throw new Error('Somente o responsável ou um gestor pode concluir a tarefa.');
+      }
+      if (status !== 'pending') return;
+      transaction.update(ref, {
+        status: 'completed',
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      return;
     }
 
-    const tasksRef = collection(db, 'companies', companyId, 'tasks');
-    await addDoc(tasksRef, {
-      name: task.name.trim(),
-      description: task.description.trim(),
-      dueDate: task.dueDate.trim(),
-      assigneeUid,
-      assigneeName: task.assignee.name,
-      sector: task.sector ?? '',
-      priority: task.priority ?? 'media',
-      category: task.category ?? 'Rotina',
+    if (!access.isAdmin) throw new Error('Somente gestores podem validar ou reabrir tarefas.');
+
+    if (action === 'archive') {
+      if (task.archivedAt) return;
+      if (status !== 'completed' || !task.completedAt) {
+        throw new Error('A tarefa precisa estar concluída para ser validada.');
+      }
+      transaction.update(ref, {
+        archivedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      return;
+    }
+
+    if (status === 'pending') return;
+    transaction.update(ref, {
       status: 'pending',
       completedAt: null,
-      archivedAt: null,
-      createdByUid,
-      createdAt: serverTimestamp(),
+      ...(task.archivedAt ? { archivedAt: null } : {}),
       updatedAt: serverTimestamp(),
     });
+  });
+}
+
+export async function deleteTask(access: TaskAccess, taskId: string) {
+  if (!access.isAdmin) throw new Error('Apenas gestores podem excluir tarefas.');
+  const ref = doc(tasksCollection(access.companyId), taskId);
+
+  const exists = await runTransaction(db, async (transaction) => {
+    const task = await transaction.get(ref);
+    if (!task.exists()) return false;
+    // As regras bloqueiam novas observações a partir deste ponto, inclusive entre lotes.
+    if (!task.get('deleting')) transaction.update(ref, { deleting: true });
+    return true;
+  });
+  if (!exists) return;
+
+  const notes = query(notesCollection(access.companyId, taskId), limit(450));
+  let snapshot = await getDocsFromServer(notes);
+  while (!snapshot.empty) {
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((note) => batch.delete(note.ref));
+    await batch.commit();
+    snapshot = await getDocsFromServer(notes);
   }
 
-  static async updateTaskStatus(
-    companyId: string,
-    taskId: string,
-    status: 'pending' | 'completed',
-    clearArchivedAt = false
-  ) {
-    const updates: DocumentData = {
-      status,
-      completedAt: status === 'completed' ? serverTimestamp() : null,
-      updatedAt: serverTimestamp(),
-    };
-    if (clearArchivedAt) updates.archivedAt = null;
-    await updateDoc(doc(db, 'companies', companyId, 'tasks', taskId), updates);
+  await runTransaction(db, async (transaction) => {
+    if ((await transaction.get(ref)).exists()) transaction.delete(ref);
+  });
+}
+
+function notesCollection(companyId: string, taskId: string) {
+  return collection(db, 'companies', companyId, 'tasks', taskId, 'messages');
+}
+
+export function subscribeToTaskNotes(
+  companyId: string,
+  taskId: string,
+  onNotes: (notes: TaskNote[]) => void,
+  onError: (error: Error) => void
+) {
+  return onSnapshot(query(notesCollection(companyId, taskId), orderBy('createdAt')), (snapshot) => {
+    onNotes(snapshot.docs.map((item) => ({
+      ...(item.data({ serverTimestamps: 'estimate' }) as Omit<TaskNote, 'id'>),
+      id: item.id,
+    })));
+  }, onError);
+}
+
+export async function addTaskNote(taskId: string, profile: EmployeeMember, content: string) {
+  const text = content.trim();
+  if (!text || text.length > 5000) {
+    throw new Error('A observação precisa ter entre 1 e 5000 caracteres.');
   }
+  await addDoc(notesCollection(profile.companyId, taskId), {
+    authorUid: profile.uid,
+    author: profile.name,
+    role: profile.jobTitle,
+    content: text,
+    createdAt: serverTimestamp(),
+  });
+}
 
-  static async archiveTask(companyId: string, taskId: string) {
-    await updateDoc(doc(db, 'companies', companyId, 'tasks', taskId), {
-      archivedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-  }
-
-  static async deleteTask(companyId: string, taskId: string) {
-    const taskRef = doc(db, 'companies', companyId, 'tasks', taskId);
-    const messagesRef = collection(taskRef, 'messages');
-    const batchSize = 450;
-
-    while (true) {
-      const messages = await getDocs(query(messagesRef, limit(batchSize)));
-      if (messages.empty) break;
-
-      const batch = writeBatch(db);
-      messages.docs.forEach((message) => batch.delete(message.ref));
-      await batch.commit();
-    }
-
-    await deleteDoc(taskRef);
-  }
-
-  static subscribeToTaskNotes(
-    companyId: string,
-    taskId: string,
-    onUpdate: (notes: TaskNote[]) => void,
-    onError?: (error: Error) => void
-  ) {
-    const notesRef = collection(
-      db,
-      'companies',
-      companyId,
-      'tasks',
-      taskId,
-      'messages'
-    );
-    const notesQuery = query(notesRef, orderBy('createdAt', 'asc'));
-
-    return onSnapshot(
-      notesQuery,
-      (snapshot) => onUpdate(snapshot.docs.map((item) => toTaskNote(item.id, item.data()))),
-      (error) => onError?.(error)
-    );
-  }
-
-  static async addTaskNote(
-    companyId: string,
-    taskId: string,
-    note: Omit<TaskNote, 'id' | 'timestamp'>
-  ) {
-    const notesRef = collection(
-      db,
-      'companies',
-      companyId,
-      'tasks',
-      taskId,
-      'messages'
-    );
-    await addDoc(notesRef, {
-      author: note.author,
-      authorUid: note.authorUid ?? '',
-      role: note.role,
-      content: note.content.trim(),
-      createdAt: serverTimestamp(),
-    });
-  }
+export function taskErrorMessage(error: unknown, fallback: string): string {
+  const code = (error as { code?: string } | null)?.code;
+  if (code === 'permission-denied') return 'Sem permissão para acessar estas tarefas no Firestore.';
+  if (!code && error instanceof Error) return error.message;
+  return fallback;
 }

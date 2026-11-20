@@ -1,57 +1,44 @@
+import { taskErrorMessage } from '@/services/task-service';
+import { formatTaskDate, type TaskNote } from '@/types/task';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { Button } from 'react-native-paper';
-import type { TaskNote } from '@/constants/tasks';
 
 type Props = {
   notes: TaskNote[];
-  onSaveNote?: (content: string) => void | Promise<void>;
-  readOnly?: boolean;
+  loading: boolean;
+  error: string | null;
   title?: string;
   emptyMessage?: string;
-  loading?: boolean;
-  error?: string | null;
+  onSaveNote?: (content: string) => Promise<void>;
 };
 
 export function TaskNotesCard({
-  notes,
-  onSaveNote,
-  readOnly = false,
-  title = 'Observações da Chefia',
-  emptyMessage = 'Nenhuma observação registrada.',
-  loading = false,
-  error = null,
+  notes, loading, error, onSaveNote,
+  title = 'Observações da Chefia', emptyMessage = 'Nenhuma observação.',
 }: Props) {
   const [inputText, setInputText] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const savingRef = useRef(false);
 
   const handleSave = async () => {
-    if (!inputText.trim()) return;
+    const content = inputText.trim();
+    if (!content || !onSaveNote || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setSaveError(null);
     try {
-      await onSaveNote?.(inputText.trim());
+      await onSaveNote(content);
       setInputText('');
-    } catch (saveFailure) {
-      setSaveError(
-        saveFailure instanceof Error
-          ? saveFailure.message
-          : 'Não foi possível salvar a nota.'
-      );
+    } catch (cause) {
+      setSaveError(taskErrorMessage(cause, 'Não foi possível salvar a nota.'));
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
-
-  const entryCountLabel = readOnly
-    ? notes.length === 1
-      ? 'mensagem'
-      : 'mensagens'
-    : notes.length === 1
-      ? 'nota'
-      : 'notas';
 
   return (
     <View className="rounded-3xl border border-slate-100 bg-surface-lowest p-4 shadow-sm">
@@ -69,17 +56,18 @@ export function TaskNotesCard({
         </View>
 
         <Text className="text-xs font-medium text-[#75777F]">
-          {notes.length} {entryCountLabel}
+          {notes.length} {notes.length === 1 ? 'nota' : 'notas'}
         </Text>
       </View>
 
+      {error || loading || notes.length === 0 ? (
+        <Text className={error ? 'mt-3 text-xs text-error' : 'mt-3 text-xs text-on-surface-variant'}>
+          {error ?? (loading ? 'Carregando observações…' : emptyMessage)}
+        </Text>
+      ) : null}
+
       {/* Lista de Notas Cadastradas */}
       <View className="mt-3.5 gap-2.5">
-        {loading && notes.length === 0 ? (
-          <Text className="rounded-2xl bg-surface-low p-3.5 text-xs text-on-surface-variant">
-            Carregando mensagens...
-          </Text>
-        ) : null}
         {notes.map((note) => (
           <View
             key={note.id}
@@ -97,7 +85,7 @@ export function TaskNotesCard({
                 </Text>
               </View>
               <Text className="text-xs font-medium text-[#75777F]">
-                {note.timestamp}
+                {formatTaskDate(note.createdAt)}
               </Text>
             </View>
 
@@ -107,25 +95,14 @@ export function TaskNotesCard({
             </Text>
           </View>
         ))}
-        {!loading && notes.length === 0 && (
-          <Text className="rounded-2xl bg-surface-low p-3.5 text-xs text-on-surface-variant">
-            {emptyMessage}
-          </Text>
-        )}
       </View>
 
-      {error || saveError ? (
-        <Text className="mt-2 text-xs text-error">{error ?? saveError}</Text>
-      ) : null}
-
-      {!readOnly && (
+      {onSaveNote ? (
         <>
-          {/* Rótulo de Criação de Nova Nota */}
           <Text className="mt-4 text-xs font-semibold text-on-surface-variant">
             Adicionar nova nota ou apontamento
           </Text>
 
-          {/* Campo de Entrada da Observação */}
           <View className="mt-2 rounded-2xl bg-surface-low p-3">
             <TextInput
               className="min-h-[72px] text-xs text-on-surface"
@@ -135,19 +112,16 @@ export function TaskNotesCard({
               textAlignVertical="top"
               value={inputText}
               onChangeText={setInputText}
+              maxLength={5000}
+              editable={!saving}
             />
           </View>
 
-          {/* Rodapé de Ações: Indicador de Visibilidade e Botão Salvar */}
           <View className="mt-3.5 flex-row items-center justify-between">
             <View className="flex-row items-center gap-1.5">
-              <MaterialCommunityIcons
-                name="eye-outline"
-                size={16}
-                color="#75777F"
-              />
+              <MaterialCommunityIcons name="eye-outline" size={16} color="#75777F" />
               <Text className="text-xs font-medium text-[#75777F]">
-                Visível para a equipe
+                Visível para o responsável
               </Text>
             </View>
 
@@ -160,14 +134,15 @@ export function TaskNotesCard({
               style={{ borderRadius: 12 }}
               labelStyle={{ fontWeight: '600', fontSize: 13 }}
               onPress={handleSave}
-              disabled={!inputText.trim() || saving}
               loading={saving}
+              disabled={!inputText.trim() || saving}
             >
               Salvar Nota
             </Button>
           </View>
+          {saveError ? <Text className="mt-2 text-xs text-error">{saveError}</Text> : null}
         </>
-      )}
+      ) : null}
     </View>
   );
 }

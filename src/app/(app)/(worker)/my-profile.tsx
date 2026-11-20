@@ -44,22 +44,19 @@ export default function MyProfileScreen() {
 
   const companyDisplayName =
     company?.companyName || profile?.companyName || 'Empresa';
-  const completedTasks = tasks.filter((task) => task.completedAt);
+  const assignedTasks = tasks.filter((task) => task.assigneeUid === profile?.uid);
+  const completedTasks = assignedTasks.filter((task) => task.status !== 'pending');
   const completion =
-    tasks.length === 0
+    assignedTasks.length === 0
       ? 0
-      : Math.round((completedTasks.length / tasks.length) * 100);
+      : Math.round((completedTasks.length / assignedTasks.length) * 100);
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const deliveredThisMonth = completedTasks.filter((task) => {
     if (!task.completedAt) return false;
-    const completedAt = new Date(task.completedAt);
-    return (
-      !Number.isNaN(completedAt.getTime()) &&
-      completedAt >= monthStart &&
-      completedAt < nextMonthStart
-    );
+    const completedAt = task.completedAt.toMillis();
+    return completedAt >= monthStart.getTime() && completedAt < nextMonthStart.getTime();
   }).length;
   const roleDisplay = profile?.sector
     ? `${profile.jobTitle} • ${profile.sector}`
