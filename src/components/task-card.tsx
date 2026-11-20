@@ -57,14 +57,18 @@ export function TaskCard({ task, onPress, onComplete }: Props) {
 
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-1.5">
-          {task.sector && (
+          {task.sector ? (
             <>
               <MaterialCommunityIcons name="package-variant-closed" size={15} color="#45464E" />
               <Text className="text-[11px] text-on-surface-variant">{task.sector}</Text>
             </>
-          )}
-          {task.sector && task.dueDate && <Text className="text-[11px] text-slate-300">•</Text>}
-          {task.dueDate && <Text className="text-[11px] text-on-surface-variant">{task.dueDate}</Text>}
+          ) : null}
+          {task.sector && task.dueDate ? (
+            <Text className="text-[11px] text-slate-300">•</Text>
+          ) : null}
+          {task.dueDate ? (
+            <Text className="text-[11px] text-on-surface-variant">{task.dueDate}</Text>
+          ) : null}
         </View>
         <Menu
           visible={menuVisible}
