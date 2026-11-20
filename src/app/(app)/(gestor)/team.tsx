@@ -1,79 +1,59 @@
+import { InviteEmployeeModal } from '@/components/invite-employee-modal';
 import { ScreenHeader } from '@/components/screen-header';
 import { TeamInviteCard } from '@/components/team-invite-card';
 import { TeamManagementCard } from '@/components/team-management-card';
-import { TeamMemberCard, type TeamMember } from '@/components/team-member-card';
+import { TeamMemberCard } from '@/components/team-member-card';
+import { useAuth } from '@/hooks/auth-context';
+import { useTeam } from '@/hooks/team-context';
+import { TeamService } from '@/services/team-service';
+import type { EmployeeMember } from '@/types/company';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Chip } from 'react-native-paper';
 
-// Dados definidos localmente no próprio arquivo (sem mock externo)
-const METRICS_DATA = {
-  total: 4,
-  active: 3,
-  pending: 1,
-};
-
-const INITIAL_MEMBERS: TeamMember[] = [
-  {
-    id: '1',
-    name: 'Jonas Francisco',
-    role: 'Desenvolvedor Frontend',
-    status: 'active',
-    initials: 'JF',
-    pendingTasks: 3,
-    completedTasks: 5,
-  },
-  {
-    id: '2',
-    name: 'Rafael Horeay',
-    role: 'Desenvolvedor Backend',
-    status: 'active',
-    initials: 'RH',
-    pendingTasks: 1,
-    completedTasks: 9,
-  },
-  {
-    id: '3',
-    name: 'Kemily Freitas',
-    role: 'QA Engineer',
-    status: 'active',
-    initials: 'KF',
-    pendingTasks: 2,
-    completedTasks: 4,
-  },
-  {
-    id: '4',
-    name: 'Eduarda Najara',
-    role: 'DevOps Engineer',
-    status: 'pending',
-    initials: 'EN',
-    statusMessage: 'Aguardando aceite de convite',
-  },
-];
-
 export default function GestorTeamScreen() {
-  const [filter, setFilter] = useState<'all' | 'active' | 'pending'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [members] = useState<TeamMember[]>(INITIAL_MEMBERS);
+  const { width } = useWindowDimensions();
+  const numColumns = width >= 1080 ? 2 : 1;
+  const { company } = useAuth();
+  const {
+    filteredMembers,
+    filter,
+    setFilter,
+    searchQuery,
+    setSearchQuery,
+    metrics,
+  } = useTeam();
 
-  const filteredMembers = members.filter((member) => {
-    const matchesFilter =
-      filter === 'all'
-        ? true
-        : filter === 'active'
-          ? member.status === 'active'
-          : member.status === 'pending';
+  const [inviteModalVisible, setInviteModalVisible] = useState(false);
+  const [editingMember, setEditingMember] = useState<EmployeeMember | null>(
+    null
+  );
 
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-    const matchesSearch =
-      normalizedQuery === '' ||
-      member.name.toLowerCase().includes(normalizedQuery) ||
-      member.role.toLowerCase().includes(normalizedQuery);
+  // Abre o modal para criar um novo convite de funcionário
+  const handleOpenNewInvite = () => {
+    setEditingMember(null);
+    setInviteModalVisible(true);
+  };
 
-    return matchesFilter && matchesSearch;
-  });
+  // Abre o modal para atualizar os dados ou função de um funcionário existente
+  const handleEditMember = (member: EmployeeMember) => {
+    setEditingMember(member);
+    setInviteModalVisible(true);
+  };
+
+  const companyInviteLink = company?.inviteCode
+    ? TeamService.buildInviteLink(company.inviteCode)
+    : undefined;
 
   return (
     <View className="flex-1 bg-surface">
@@ -82,7 +62,11 @@ export default function GestorTeamScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList
+        key={numColumns}
+        style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}
         data={filteredMembers}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? { gap: 12 } : undefined}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 12 }}
         showsVerticalScrollIndicator={false}
@@ -90,7 +74,7 @@ export default function GestorTeamScreen() {
         ListHeaderComponent={
           <>
             {/* Card de Gestão de Colaboradores */}
-            <TeamManagementCard totalCount={METRICS_DATA.total} />
+            <TeamManagementCard totalCount={metrics.total} />
 
             {/* Barra de Busca de Funcionários */}
             <View className="mt-3 flex-row items-center rounded-2xl border border-slate-200 bg-surface-lowest px-4 h-12 shadow-sm">
@@ -122,7 +106,11 @@ export default function GestorTeamScreen() {
 
             {/* Card de Convite de Novos Membros */}
             <View className="mt-3">
-              <TeamInviteCard onInvitePress={() => {}} />
+              <TeamInviteCard
+                inviteCode={company?.inviteCode}
+                inviteLink={companyInviteLink}
+                onInvitePress={handleOpenNewInvite}
+              />
             </View>
 
             {/* Chips de Filtro com Paper */}
@@ -147,7 +135,7 @@ export default function GestorTeamScreen() {
                   fontSize: 12,
                 }}
               >
-                Todos ({METRICS_DATA.total})
+                Todos ({metrics.total})
               </Chip>
 
               <Chip
@@ -175,7 +163,7 @@ export default function GestorTeamScreen() {
                   fontSize: 12,
                 }}
               >
-                Ativos ({METRICS_DATA.active})
+                Ativos ({metrics.active})
               </Chip>
 
               <Chip
@@ -203,12 +191,30 @@ export default function GestorTeamScreen() {
                   fontSize: 12,
                 }}
               >
-                Pendentes ({METRICS_DATA.pending})
+                Pendentes ({metrics.pending})
               </Chip>
             </ScrollView>
           </>
         }
-        renderItem={({ item }) => <TeamMemberCard member={item} />}
+        renderItem={({ item }) => (
+          <View style={{ flex: 1, maxWidth: numColumns > 1 ? '49%' : '100%' }}>
+            <TeamMemberCard
+              member={{
+                id: item.id,
+                name: item.name,
+                role: item.sector
+                  ? `${item.jobTitle} • ${item.sector}`
+                  : item.jobTitle,
+                status: item.status,
+                initials: item.initials,
+                pendingTasks: item.pendingTasks,
+                completedTasks: item.completedTasks,
+                statusMessage: item.statusMessage,
+              }}
+              onPress={() => handleEditMember(item)}
+            />
+          </View>
+        )}
         ListEmptyComponent={
           <View className="items-center justify-center py-10">
             <MaterialCommunityIcons
@@ -220,10 +226,20 @@ export default function GestorTeamScreen() {
               Nenhum colaborador encontrado
             </Text>
             <Text className="mt-1 text-xs text-on-surface-variant text-center">
-              Tente buscar por outro termo ou alterar o filtro aplicado.
+              Convide novos funcionários ou altere o filtro aplicado.
             </Text>
           </View>
         }
+      />
+
+      {/* Modal de Convite e Atualização de Funcionários */}
+      <InviteEmployeeModal
+        visible={inviteModalVisible}
+        editingMember={editingMember}
+        onDismiss={() => {
+          setInviteModalVisible(false);
+          setEditingMember(null);
+        }}
       />
     </View>
   );

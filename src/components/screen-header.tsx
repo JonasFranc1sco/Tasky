@@ -1,8 +1,8 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React from 'react';
 import { Text, View } from 'react-native';
-import { IconButton } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NotificationBell } from '@/components/notification-modal';
 
 type Props = {
     title: string;
@@ -25,7 +25,7 @@ export function ScreenHeader({ title, right }: Props) {
           </View>
         </View>
         <View className="flex-row items-center">
-          {right ?? <IconButton icon="bell" size={22} onPress={() => {}} />}
+          {right ?? <NotificationBell />}
         </View>
       </View>
     </View>

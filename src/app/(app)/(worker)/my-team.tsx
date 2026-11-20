@@ -1,77 +1,98 @@
 import { ColleagueCard, type Colleague } from '@/components/colleague-card';
 import { ScreenHeader } from '@/components/screen-header';
-import { TeamLeadershipCard, type TeamLead } from '@/components/team-leadership-card';
+import {
+  TeamLeadershipCard,
+  type TeamLead,
+} from '@/components/team-leadership-card';
 import { TeamShiftStats } from '@/components/team-shift-stats';
-import { CURRENT_COMPANY, CURRENT_EMPLOYEE } from '@/constants/tasks';
+import { useAuth } from '@/hooks/auth-context';
+import { useChat } from '@/hooks/chat-context';
+import { useTeam } from '@/hooks/team-context';
+import type { EmployeeMember } from '@/types/company';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
-import { useState } from 'react';
-import { FlatList, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import {
+  FlatList,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Chip } from 'react-native-paper';
-
-const COLLEAGUES: Colleague[] = [
-  {
-    id: 'c1',
-    name: CURRENT_EMPLOYEE,
-    role: 'Desenvolvedor Frontend • Desenvolvimento',
-    sector: 'Frontend',
-    status: 'turno',
-    initials: 'JF',
-    isSelf: true,
-    shift: 'A',
-    statusDetail: 'Em turno até 18:00',
-  },
-  {
-    id: 'c2',
-    name: 'Rafael Horeay',
-    role: 'Desenvolvedor Backend • Backend',
-    sector: 'Backend',
-    status: 'turno',
-    initials: 'RH',
-    statusDetail: 'Em turno • Code review do dia',
-  },
-  {
-    id: 'c3',
-    name: 'Kemily Freitas',
-    role: 'QA Engineer • Qualidade',
-    sector: 'Qualidade',
-    status: 'turno',
-    initials: 'KF',
-    statusDetail: 'Em turno • Iteração de testes',
-  },
-  {
-    id: 'c4',
-    name: 'Eduarda Najara',
-    role: 'DevOps Engineer • Infraestrutura',
-    sector: 'Infraestrutura',
-    status: 'turno',
-    initials: 'EN',
-    statusDetail: 'Em turno • Deploy monitorado',
-  },
-];
-
-const MANAGER: TeamLead = {
-    name: 'João Pedro',
-    role: 'Gerente',
-    initials: 'JP'
-};
 
 type Filter = 'all' | 'turno' | 'sector';
 
 export default function MyTeamScreen() {
+  const router = useRouter();
+  const { width } = useWindowDimensions();
+  const numColumns = width >= 1080 ? 2 : 1;
+  const { profile, company } = useAuth();
+  const { activeMembers, manager } = useTeam();
+  const { startChatWithMember } = useChat();
   const [filter, setFilter] = useState<Filter>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const selfSector = COLLEAGUES.find((c) => c.isSelf)?.sector ?? '';
-  const onShift = COLLEAGUES.filter((c) => c.status === 'turno').length;
+  // Abre uma conversa direta com o colega ou gestor selecionado
+  const handleStartChat = async (targetMember?: EmployeeMember | null) => {
+    if (!targetMember) return;
+    try {
+      const conv = await startChatWithMember(targetMember);
+      router.push(`/chat/${conv.id}`);
+    } catch {
+      // Ignora caso o usuário toque no próprio perfil
+    }
+  };
 
-  const filtered = COLLEAGUES.filter((colleague) => {
+  // Converte os membros ativos da empresa no formato visual do ColleagueCard
+  const colleagues = useMemo<Colleague[]>(
+    () =>
+      activeMembers.map((member) => {
+        const isSelf = member.uid === profile?.uid || member.id === profile?.id;
+        return {
+          id: member.id,
+          name: member.name,
+          role: member.sector
+            ? `${member.jobTitle} • ${member.sector}`
+            : member.jobTitle,
+          sector: member.sector || 'Geral',
+          status: 'turno',
+          initials: member.initials,
+          isSelf,
+          shift: 'A',
+          statusDetail: isSelf
+            ? 'Em turno até 18:00'
+            : `Em turno • ${member.sector || 'Operação'}`,
+        };
+      }),
+    [activeMembers, profile?.id, profile?.uid]
+  );
+
+  // Dados do gestor/administrador da empresa
+  const teamLead = useMemo<TeamLead>(
+    () => ({
+      name: manager?.name ?? 'Administrador',
+      role: manager?.jobTitle ?? 'Gerente',
+      initials: manager?.initials ?? 'AD',
+    }),
+    [manager]
+  );
+
+  const companyDisplayName =
+    company?.companyName || profile?.companyName || 'Empresa';
+  const selfSector =
+    profile?.sector || colleagues.find((c) => c.isSelf)?.sector || 'Geral';
+  const onShift = colleagues.filter((c) => c.status === 'turno').length;
+
+  const filtered = colleagues.filter((colleague) => {
     const matchesFilter =
       filter === 'all'
         ? true
         : filter === 'turno'
           ? colleague.status === 'turno'
-          : colleague.sector === selfSector;
+          : colleague.sector.toLowerCase() === selfSector.toLowerCase();
 
     const q = searchQuery.trim().toLowerCase();
     const matchesSearch =
@@ -89,32 +110,56 @@ export default function MyTeamScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList
+        key={numColumns}
+        style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}
         data={filtered}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? { gap: 12 } : undefined}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 12 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        renderItem={({ item }) => <ColleagueCard colleague={item} />}
+        renderItem={({ item }) => {
+          const targetMember = activeMembers.find((m) => m.id === item.id);
+          return (
+            <View style={{ flex: 1, maxWidth: numColumns > 1 ? '49%' : '100%' }}>
+              <ColleagueCard
+                colleague={item}
+                onChatPress={() => handleStartChat(targetMember)}
+              />
+            </View>
+          );
+        }}
         ListHeaderComponent={
           <>
             <View className="flex-row items-center justify-between pt-1">
               <View>
-                <Text className="text-xl font-bold text-on-surface">Nossa Equipe</Text>
+                <Text className="text-xl font-bold text-on-surface">
+                  Nossa Equipe
+                </Text>
                 <View className="mt-0.5 flex-row items-center gap-1.5">
                   <View className="h-2 w-2 rounded-full bg-[#006A61]" />
                   <Text className="text-xs font-medium text-on-surface-variant">
-                    {CURRENT_COMPANY} • {COLLEAGUES.length} colegas
+                    {companyDisplayName} • {colleagues.length} colegas
                   </Text>
                 </View>
               </View>
               <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-container">
-                <MaterialCommunityIcons name="badge-account-outline" size={20} color="#0F2042" />
+                <MaterialCommunityIcons
+                  name="badge-account-outline"
+                  size={20}
+                  color="#0F2042"
+                />
               </View>
             </View>
 
             <View className="gap-2.5">
               <View className="flex-row items-center rounded-2xl border border-slate-200 bg-surface-lowest px-4 h-12 shadow-sm">
-                <MaterialCommunityIcons name="magnify" size={20} color="#75777F" />
+                <MaterialCommunityIcons
+                  name="magnify"
+                  size={20}
+                  color="#75777F"
+                />
                 <TextInput
                   className="ml-2 flex-1 text-sm text-on-surface"
                   placeholder="Buscar colega por nome ou setor..."
@@ -127,7 +172,11 @@ export default function MyTeamScreen() {
                 />
                 {searchQuery.length > 0 && (
                   <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
-                    <MaterialCommunityIcons name="close-circle" size={18} color="#75777F" />
+                    <MaterialCommunityIcons
+                      name="close-circle"
+                      size={18}
+                      color="#75777F"
+                    />
                   </Pressable>
                 )}
               </View>
@@ -142,18 +191,33 @@ export default function MyTeamScreen() {
                   mode="flat"
                   selected={filter === 'all'}
                   onPress={() => setFilter('all')}
-                  style={{ backgroundColor: filter === 'all' ? '#0F2042' : '#ECEFF0', borderRadius: 12 }}
-                  textStyle={{ color: filter === 'all' ? '#FFFFFF' : '#45464E', fontWeight: '600', fontSize: 12 }}
+                  style={{
+                    backgroundColor: filter === 'all' ? '#0F2042' : '#ECEFF0',
+                    borderRadius: 12,
+                  }}
+                  textStyle={{
+                    color: filter === 'all' ? '#FFFFFF' : '#45464E',
+                    fontWeight: '600',
+                    fontSize: 12,
+                  }}
                 >
-                  Todos ({COLLEAGUES.length})
+                  Todos ({colleagues.length})
                 </Chip>
 
                 <Chip
                   mode="flat"
                   selected={filter === 'sector'}
                   onPress={() => setFilter('sector')}
-                  style={{ backgroundColor: filter === 'sector' ? '#0F2042' : '#ECEFF0', borderRadius: 12 }}
-                  textStyle={{ color: filter === 'sector' ? '#FFFFFF' : '#45464E', fontWeight: '600', fontSize: 12 }}
+                  style={{
+                    backgroundColor:
+                      filter === 'sector' ? '#0F2042' : '#ECEFF0',
+                    borderRadius: 12,
+                  }}
+                  textStyle={{
+                    color: filter === 'sector' ? '#FFFFFF' : '#45464E',
+                    fontWeight: '600',
+                    fontSize: 12,
+                  }}
                 >
                   Meu Setor ({selfSector})
                 </Chip>
@@ -162,29 +226,43 @@ export default function MyTeamScreen() {
                   mode="flat"
                   selected={filter === 'turno'}
                   onPress={() => setFilter('turno')}
-                  style={{ backgroundColor: filter === 'turno' ? '#0F2042' : '#ECEFF0', borderRadius: 12 }}
-                  textStyle={{ color: filter === 'turno' ? '#FFFFFF' : '#45464E', fontWeight: '600', fontSize: 12 }}
+                  style={{
+                    backgroundColor: filter === 'turno' ? '#0F2042' : '#ECEFF0',
+                    borderRadius: 12,
+                  }}
+                  textStyle={{
+                    color: filter === 'turno' ? '#FFFFFF' : '#45464E',
+                    fontWeight: '600',
+                    fontSize: 12,
+                  }}
                 >
                   Em Turno ({onShift})
                 </Chip>
               </ScrollView>
             </View>
-            </>
+          </>
         }
         ListFooterComponent={
           <>
-            <TeamLeadershipCard manager={MANAGER} />
+            <TeamLeadershipCard
+              manager={teamLead}
+              onTalkPress={() => handleStartChat(manager)}
+            />
             <TeamShiftStats
               shift="08:00 – 18:00"
               shiftStatus="Operando normal"
               present={onShift}
-              total={COLLEAGUES.length}
+              total={colleagues.length}
             />
           </>
         }
         ListEmptyComponent={
           <View className="items-center justify-center py-10">
-            <MaterialCommunityIcons name="account-search-outline" size={48} color="#75777F" />
+            <MaterialCommunityIcons
+              name="account-search-outline"
+              size={48}
+              color="#75777F"
+            />
             <Text className="mt-3 text-sm font-semibold text-on-surface">
               Nenhum colega encontrado
             </Text>

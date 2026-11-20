@@ -7,6 +7,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,8 +20,8 @@ import {
   type AdminSignupValues,
   type CompanySignupValues,
 } from "@/constants/signup-validation";
-import { useAuth } from "@/contexts/AuthContext";
-import { getAuthErrorMessage } from "@/services/auth-errors";
+import { CompanyService } from "@/services/company-service";
+
 type Icon = keyof typeof MaterialCommunityIcons.glyphMap;
 type FieldConfig = {
   key: string;
@@ -200,26 +201,29 @@ function SectionTitle({
 export function CorporateSignup() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { signUp } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const { width } = useWindowDimensions();
+  const isWideLayout = width >= 720;
+
   const [step, setStep] = useState<1 | 2>(1);
   const [terms, setTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
 
-    const [company, setCompany] = useState<CompanySignupValues>({
-    companyName: "",
-    legalName: "",
-    taxId: "",
-    phone: "",
-    industry: "",
+  const [company, setCompany] = useState<CompanySignupValues>({
+    companyName: "Dubai Software House",
+    legalName: "Dubai Software House Desenvolvimento de Softwares",
+    taxId: "12.345.678/0001-90",
+    phone: "(11) 99999-8888",
+    industry: "Desenvolvimento de Software",
   });
+  
 
   const [admin, setAdmin] = useState<AdminSignupValues>({
-    adminName: "",
-    adminEmail: "",
-    password: "",
+    adminName: "João Pedro",
+    adminEmail: "joaopedro@dubaisoftwarehouse.com.br",
+    password: "DubaiSW@2026",
   });
 
   const updateCompany = (key: string, value: string) => {
@@ -248,8 +252,10 @@ export function CorporateSignup() {
     setStep(2);
   };
 
-    const finish = async () => {
+  // Conclui o cadastro registrando empresa e administrador no Firebase
+  const finish = async () => {
     setError("");
+    setStatus("");
 
     if (!isAdminFormValid(admin)) {
       setError("Confira os dados e use uma senha com 8 caracteres.");
@@ -261,22 +267,26 @@ export function CorporateSignup() {
       return;
     }
 
-    setLoading(true);
     try {
-      await signUp({
-        name: admin.adminName,
-        email: admin.adminEmail,
-        password: admin.password,
-        company,
-      });
+      setSubmitting(true);
+      await CompanyService.registerCompanyWithAdmin(company, admin);
       setStatus("Cadastro concluído com sucesso.");
       router.replace("/(app)/(gestor)/home");
-    } catch (err) {
-      setError(getAuthErrorMessage(err));
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === "auth/email-already-in-use") {
+        setError("Este e-mail já está cadastrado.");
+      } else {
+        setError(
+          (err as { message?: string })?.message ??
+            "Não foi possível concluir o cadastro no Firebase."
+        );
+      }
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
+
   const goBack = () => {
     if (step === 2) {
       setStep(1);
@@ -284,7 +294,11 @@ export function CorporateSignup() {
       return;
     }
 
-    router.canGoBack() ? router.back() : router.replace("/login");
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/login");
+    }
   };
 
   const values = step === 1 ? company : admin;
@@ -294,7 +308,10 @@ export function CorporateSignup() {
   return (
     <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-background">
       <View className="flex-1 bg-background">
-        <View className="h-[58px] flex-row items-center justify-between border-b border-border bg-surface px-3">
+        <View
+          className="h-[58px] flex-row items-center justify-between border-b border-border bg-surface px-3"
+          style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}
+        >
           <Pressable
             onPress={goBack}
             className="h-9 w-9 items-center justify-center rounded-xl bg-background"
@@ -316,47 +333,83 @@ export function CorporateSignup() {
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          contentContainerClassName="grow p-5"
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: width < 360 ? 12 : 20,
+            paddingVertical: 24,
+          }}
         >
-          <Text className="text-[22px] font-extrabold text-foreground">
-            Criar Conta Corporativa
-          </Text>
+          <View
+            style={{
+              width: '100%',
+              maxWidth: isWideLayout ? 960 : 560,
+              alignSelf: 'center',
+            }}
+          >
+            <Text className="text-[22px] font-extrabold text-foreground">
+              Criar Conta Corporativa
+            </Text>
 
-          <Text className="mt-1 text-[13px] text-muted">
-            {step === 1
-              ? "Cadastre sua empresa"
-              : "Configure o perfil inicial de Administrador."}
-          </Text>
+            <Text className="mt-1 text-[13px] text-muted">
+              {step === 1
+                ? "Cadastre sua empresa"
+                : "Configure o perfil inicial de Administrador."}
+            </Text>
 
-          <Steps step={step} />
+            <Steps step={step} />
 
-          <View className="rounded-2xl border border-border bg-surface p-3.5">
-            <SectionTitle step={step} admin={step === 2} />
+            <View
+              className="rounded-2xl border border-border bg-surface"
+              style={{
+                width: '100%',
+                maxWidth: isWideLayout ? 900 : 560,
+                alignSelf: 'center',
+                padding: isWideLayout ? 22 : 14,
+              }}
+            >
+              <SectionTitle step={step} admin={step === 2} />
 
-            {fields.map((field) => (
-              <Field
-                key={field.key}
-                config={field}
-                value={String(values[field.key as keyof typeof values] ?? "")}
-                onChange={(value) => update(field.key, value)}
-                password={field.key === "password"}
-                showPassword={showPassword}
-                onTogglePassword={() => setShowPassword((value) => !value)}
-              />
-            ))}
-
-            {step === 2 ? (
-              <Field
-                config={{
-                  key: "role",
-                  label: "Cargo / Perfil",
-                  icon: "account-tie-outline",
+              <View
+                style={{
+                  flexDirection: isWideLayout ? 'row' : 'column',
+                  flexWrap: isWideLayout ? 'wrap' : 'nowrap',
+                  gap: isWideLayout ? 12 : 0,
                 }}
-                value="Administrador (Proprietário)"
-                readOnly
-              />
-            ) : null}
-          </View>
+              >
+                {fields.map((field) => (
+                  <View
+                    key={field.key}
+                    style={{
+                      width: isWideLayout ? '48%' : '100%',
+                      flexGrow: isWideLayout ? 1 : 0,
+                    }}
+                  >
+                    <Field
+                      config={field}
+                      value={String(values[field.key as keyof typeof values] ?? "")}
+                      onChange={(value) => update(field.key, value)}
+                      password={field.key === "password"}
+                      showPassword={showPassword}
+                      onTogglePassword={() => setShowPassword((value) => !value)}
+                    />
+                  </View>
+                ))}
+
+                {step === 2 ? (
+                  <View style={{ width: '100%' }}>
+                    <Field
+                      config={{
+                        key: "role",
+                        label: "Cargo / Perfil",
+                        icon: "account-tie-outline",
+                      }}
+                      value="Administrador (Proprietário)"
+                      readOnly
+                    />
+                  </View>
+                ) : null}
+              </View>
+            </View>
 
           <Pressable
             onPress={() => setTerms((value) => !value)}
@@ -405,11 +458,16 @@ export function CorporateSignup() {
 
           <Pressable
             onPress={step === 1 ? next : finish}
-            disabled={loading}
+            disabled={submitting}
             className="mt-4 min-h-[46px] flex-row items-center justify-center gap-2 rounded-xl bg-primary"
           >
             <Text className="text-[11px] font-extrabold text-white">
-              {step === 1 ? "Cadastrar Empresa" : loading ? "Criando conta..." : "Concluir"}            </Text>
+              {submitting
+                ? "Cadastrando..."
+                : step === 1
+                  ? "Cadastrar Empresa"
+                  : "Concluir"}
+            </Text>
             <MaterialCommunityIcons
               name="arrow-right"
               size={18}
@@ -417,7 +475,7 @@ export function CorporateSignup() {
             />
           </Pressable>
 
-          <View className="mt-4 flex-row justify-center">
+            <View className="mt-4 flex-row flex-wrap justify-center">
             <Text className="text-[10px] text-muted">
               Já possui uma empresa cadastrada?{" "}
             </Text>
@@ -428,6 +486,7 @@ export function CorporateSignup() {
                 Fazer Login
               </Text>
             </Pressable>
+            </View>
           </View>
         </ScrollView>
       </View>
