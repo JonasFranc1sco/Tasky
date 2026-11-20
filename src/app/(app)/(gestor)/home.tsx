@@ -19,6 +19,8 @@ export default function GestorHomeScreen() {
   const isWideMetrics = width >= 600;
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [employeeFilter, setEmployeeFilter] = useState('all');
+  const [sectorFilter, setSectorFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const {
     tasks: allTasks,
@@ -32,10 +34,19 @@ export default function GestorHomeScreen() {
   const [delegateVisible, setDelegateVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
+  const employees = [...new Set(tasks.map((task) => task.assignee))];
   const companyDisplayName =
     company?.companyName || profile?.companyName || 'Empresa';
 
   const managerDisplayName = profile?.name || 'Gestor';
+
+  const sectors = [
+  ...new Set(
+    tasks
+      .map((task) => task.sector)
+      .filter((sector): sector is string => Boolean(sector))
+  ),
+];
 
   const filteredTasks = tasks.filter((task) => {
     const matchesStatus = filter === 'all' || task.status === filter;
@@ -47,14 +58,32 @@ export default function GestorHomeScreen() {
     const matchesPriority =
       priorityFilter === 'all' || task.category === priorityFilter;
 
-    return matchesStatus && matchesSearch && matchesPriority;
+    const matchesPriority =
+      priorityFilter === 'all' || task.category === priorityFilter;
+
+    const matchesEmployee =
+      employeeFilter === 'all' || task.assignee === employeeFilter;
+
+    const matchesSector =
+      sectorFilter === 'all' || task.sector === sectorFilter;
+
+    return (
+      matchesStatus &&
+      matchesSearch &&
+      matchesPriority &&
+      matchesEmployee &&
+      matchesSector
+    );
   });
 
   const handleDelegate = async (payload: DelegationPayload) => {
     await addTask({
       name: payload.title,
       description: payload.description,
-      assignee: { name: payload.assignee.name, uid: payload.assignee.uid },
+      assignee: {
+        name: payload.assignee.name,
+        uid: payload.assignee.uid,
+      },
       dueDate: payload.dueDate,
       sector: payload.sector,
       priority:
@@ -65,6 +94,7 @@ export default function GestorHomeScreen() {
             : 'media',
       category: payload.priority,
     });
+
     setDelegateVisible(false);
     setSnackbarMessage('Tarefa delegada e sincronizada.');
   };
@@ -166,7 +196,62 @@ export default function GestorHomeScreen() {
             borderRadius: 12,
             }}
             inputStyle={{ fontSize: 14 }}
-/><View className="mt-3 flex-row flex-wrap gap-2">
+/>
+<Text className="mt-4 text-sm font-semibold text-on-surface">
+  Filtrar por funcionário
+</Text>
+
+<ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  className="mt-2"
+  contentContainerStyle={{ gap: 8 }}
+>
+  <Text className="mt-4 text-sm font-semibold text-on-surface">
+  Filtrar por setor
+</Text>
+
+<ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  className="mt-2"
+  contentContainerStyle={{ gap: 8 }}
+>
+  <Chip
+    selected={sectorFilter === 'all'}
+    onPress={() => setSectorFilter('all')}
+  >
+    Todos os setores
+  </Chip>
+
+  {sectors.map((sector) => (
+    <Chip
+      key={sector}
+      selected={sectorFilter === sector}
+      onPress={() => setSectorFilter(sector)}
+    >
+      {sector}
+    </Chip>
+  ))}
+</ScrollView>
+  <Chip
+    selected={employeeFilter === 'all'}
+    onPress={() => setEmployeeFilter('all')}
+  >
+    Todos
+  </Chip>
+
+  {employees.map((employee) => (
+    <Chip
+      key={employee}
+      selected={employeeFilter === employee}
+      onPress={() => setEmployeeFilter(employee)}
+    >
+      {employee}
+    </Chip>
+  ))}
+</ScrollView>
+<View className="mt-3 flex-row flex-wrap gap-2">
   {[
     { label: 'Todas prioridades', value: 'all' },
     { label: 'Alta', value: 'Alta Prioridade' },

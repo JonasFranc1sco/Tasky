@@ -11,6 +11,7 @@ export type ManagerTask = {
   time: string;
   status: 'pending' | 'completed';
   category?: string;
+  sector?: string;
   createdAt?: string;
   completedAt?: string;
   archivedAt?: string;
