@@ -47,7 +47,6 @@ export default function GestorHomeScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const deleteInProgress = useRef(false);
-
   const query = search.trim().toLocaleLowerCase('pt-BR');
   const employees = new Map<string, string>();
   for (const task of tasks) {
@@ -196,6 +195,7 @@ export default function GestorHomeScreen() {
                 </Button>
               )}
             </View>
+
           </>
         }
         ListEmptyComponent={loading ? <ActivityIndicator /> : (
